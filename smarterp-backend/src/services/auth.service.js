@@ -72,11 +72,6 @@ class AuthService {
             throw new Error('Account is deactivated. Please contact support.');
         }
 
-        // Check if email is verified (if verification is enabled)
-        if (process.env.ENABLE_EMAIL_VERIFICATION === 'true' && !user.email_verified) {
-            throw new Error('Please verify your email before logging in');
-        }
-
         // Verify password
         const isValid = await UserModel.verifyPassword(user, validatedData.password);
         if (!isValid) {

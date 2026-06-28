@@ -16,6 +16,7 @@ class UserModel {
                 role: userData.role || 'USER',
                 is_active: true,
                 email_verified: false,
+                phone: userData.phone || null,
                 verification_token: userData.verification_token || null,
                 verification_token_expiry: userData.verification_token_expiry || null
             };
@@ -23,10 +24,13 @@ class UserModel {
             const { data, error } = await supabase
                 .from('users')
                 .insert(user)
-                .select('id, email, full_name, role, is_active, email_verified, created_at')
+                .select('id, email, full_name, role, is_active, email_verified, phone, created_at')
                 .single();
 
-            if (error) throw error;
+            if (error) {
+                logger.error('Supabase insert error:', error);
+                throw error;
+            }
 
             logger.info(`User created: ${data.email}`);
             return data;
@@ -57,7 +61,7 @@ class UserModel {
         try {
             const { data, error } = await supabase
                 .from('users')
-                .select('id, email, full_name, role, is_active, email_verified, last_login, created_at, updated_at')
+                .select('id, email, full_name, role, is_active, email_verified, phone, last_login, created_at, updated_at')
                 .eq('id', id)
                 .is('deleted_at', null)
                 .single();
@@ -119,7 +123,7 @@ class UserModel {
                 .update(userData)
                 .eq('id', id)
                 .is('deleted_at', null)
-                .select('id, email, full_name, role, is_active, email_verified, updated_at')
+                .select('id, email, full_name, role, is_active, email_verified, phone, updated_at')
                 .single();
 
             if (error) throw error;
@@ -236,9 +240,9 @@ class UserModel {
         try {
             const { data, error } = await supabase
                 .from('users')
-                .select('id, email, full_name, role, is_active')
+                .select('id, email, full_name, role, is_active, phone')
                 .is('deleted_at', null)
-                .or(`email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%`)
+                .or(`email.ilike.%${searchTerm}%,full_name.ilike.%${searchTerm}%,phone.ilike.%${searchTerm}%`)
                 .limit(limit);
 
             if (error) throw error;

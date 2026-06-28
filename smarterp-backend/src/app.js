@@ -87,6 +87,7 @@ app.get('/health', async (req, res) => {
 // API Routes
 app.use('/api/v1/auth', require('./routes/v1/auth.routes'));
 app.use('/api/v1/companies', require('./routes/v1/company.routes'));
+app.use('/api/v1/dashboard', require('./routes/v1/dashboard.routes'));
 
 // Error handling
 app.use(errorHandler);

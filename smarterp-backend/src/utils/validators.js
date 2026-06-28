@@ -20,32 +20,41 @@ const companySchema = z.object({
         .max(100, 'Company name must be less than 100 characters'),
     address: z.string()
         .max(500, 'Address must be less than 500 characters')
-        .optional(),
-    gst_number: z.string()
-        .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GST number format')
         .optional()
-        .nullable(),
+        .nullable()
+        .default(null),
+    gst_number: z.string()
+        .optional()
+        .nullable()
+        .default(null),
     financial_year: z.string()
-        .regex(/^\d{4}-\d{4}$/, 'Invalid financial year format (e.g., 2024-2025)')
-        .optional(),
+        .optional()
+        .nullable()
+        .default(null),
     state: z.string()
         .max(100, 'State must be less than 100 characters')
-        .optional(),
-    mobile: z.string()
-        .regex(/^[0-9]{10}$/, 'Invalid mobile number format (must be 10 digits)')
         .optional()
-        .nullable(),
+        .nullable()
+        .default(null),
+    mobile: z.string()
+        .optional()
+        .nullable()
+        .default(null),
     email: z.string()
         .email('Invalid email format')
         .optional()
-        .nullable(),
+        .nullable()
+        .default(null),
     contact_person: z.string()
         .max(100, 'Contact person name must be less than 100 characters')
-        .optional(),
+        .optional()
+        .nullable()
+        .default(null),
     logo_url: z.string()
         .url('Invalid URL format')
         .optional()
         .nullable()
+        .default(null)
 });
 
 // Validation middleware

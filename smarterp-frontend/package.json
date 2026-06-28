@@ -8,19 +8,21 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
     "@radix-ui/react-dialog": "^1.0.4",
     "@radix-ui/react-select": "^1.2.2",
     "@radix-ui/react-tabs": "^1.0.4",
-    "@tanstack/react-table": "^8.9.1",
+    "@tanstack/react-table": "^8.21.3",
     "axios": "^1.4.0",
     "class-variance-authority": "^0.5.2",
     "clsx": "^1.2.1",
+    "date-fns": "^4.4.0",
     "lucide-react": "^0.253.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-hook-form": "^7.43.9",
-    "react-hot-toast": "^2.4.1",
+    "react-hot-toast": "^2.6.0",
     "react-router-dom": "^6.11.2",
+    "recharts": "^3.9.0",
     "tailwind-merge": "^1.13.2",
     "tailwindcss-animate": "^1.0.5",
     "zod": "^3.21.4",
@@ -30,9 +32,9 @@
     "@types/react": "^18.0.37",
     "@types/react-dom": "^18.0.11",
     "@vitejs/plugin-react": "^4.0.0",
-    "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.23",
-    "tailwindcss": "^3.3.2",
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^3.4.19",
     "vite": "^4.3.2"
   }
 }

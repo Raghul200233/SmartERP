@@ -6,9 +6,16 @@ const { companySchema } = require('../utils/validators');
 class CompanyController {
     async create(req, res, next) {
         try {
+            logger.info('Company creation request:', { 
+                userId: req.user.id,
+                body: req.body 
+            });
+
             // Validate input
             const validatedData = companySchema.parse(req.body);
             
+            logger.info('Validated data:', validatedData);
+
             const company = await CompanyModel.create(validatedData, req.user.id);
             
             // Log audit
@@ -28,7 +35,11 @@ class CompanyController {
                 data: company
             });
         } catch (error) {
-            logger.error('Create company error:', error);
+            logger.error('Create company error:', {
+                error: error.message,
+                stack: error.stack,
+                details: error.details
+            });
             next(error);
         }
     }
