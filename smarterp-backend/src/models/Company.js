@@ -1,54 +1,95 @@
-const { supabase, pool, transaction } = require('../config/database');
+const { supabase } = require('../config/database');
 const logger = require('../utils/logger');
 
 class CompanyModel {
     async create(companyData, userId) {
         try {
-            // Start a transaction
-            return await transaction(async () => {
-                // Create company
-                const company = {
-                    ...companyData,
-                    created_by: userId
-                };
+            // Check if user already has 5 companies
+            const { count, error: countError } = await supabase
+                .from('user_companies')
+                .select('*', { count: 'exact' })
+                .eq('user_id', userId);
 
-                const { data: company, error: companyError } = await supabase
-                    .from('companies')
-                    .insert(company)
-                    .select()
-                    .single();
+            if (countError) throw countError;
 
-                if (companyError) throw companyError;
+            if (count >= 5) {
+                throw new Error('Maximum 5 companies allowed per user');
+            }
 
-                // Create user-company relationship
-                const { error: relationError } = await supabase
-                    .from('user_companies')
-                    .insert({
-                        user_id: userId,
-                        company_id: company.id,
-                        role: 'ADMIN',
-                        is_default: true
-                    });
+            // Check if company name already exists for this user
+            const { data: existing, error: existingError } = await supabase
+                .from('companies')
+                .select('id')
+                .eq('name', companyData.name)
+                .eq('created_by', userId)
+                .is('deleted_at', null)
+                .single();
 
-                if (relationError) throw relationError;
+            if (existing) {
+                throw new Error('Company with this name already exists');
+            }
 
-                // Create default account groups
-                await this.createDefaultAccountGroups(company.id, userId);
-                
-                // Create default stock groups
-                await this.createDefaultStockGroups(company.id, userId);
-                
-                // Create default units
-                await this.createDefaultUnits(company.id, userId);
-                
-                // Create default ledgers
-                await this.createDefaultLedgers(company.id, userId);
+            // Create company
+            const newCompany = {
+                ...companyData,
+                created_by: userId,
+                financial_year: companyData.financial_year || new Date().getFullYear() + '-' + (new Date().getFullYear() + 1)
+            };
 
-                logger.info(`Company created: ${company.name} by user ${userId}`);
-                return company;
-            });
+            const { data: createdCompany, error: companyError } = await supabase
+                .from('companies')
+                .insert(newCompany)
+                .select()
+                .single();
+
+            if (companyError) throw companyError;
+
+            // Create user-company relationship
+            const { error: relationError } = await supabase
+                .from('user_companies')
+                .insert({
+                    user_id: userId,
+                    company_id: createdCompany.id,
+                    role: 'ADMIN',
+                    is_default: true
+                });
+
+            if (relationError) throw relationError;
+
+            // Create default data for the company
+            await this.createDefaultData(createdCompany.id, userId);
+
+            logger.info(`Company created: ${createdCompany.name} by user ${userId}`);
+            return createdCompany;
         } catch (error) {
             logger.error('Error creating company:', error);
+            throw error;
+        }
+    }
+
+    async createDefaultData(companyId, userId) {
+        try {
+            // Create default account groups
+            await this.createDefaultAccountGroups(companyId, userId);
+            
+            // Create default stock groups
+            await this.createDefaultStockGroups(companyId, userId);
+            
+            // Create default units
+            await this.createDefaultUnits(companyId, userId);
+            
+            // Create default ledgers
+            await this.createDefaultLedgers(companyId, userId);
+            
+            // Create default customers
+            await this.createDefaultCustomers(companyId, userId);
+            
+            // Create default suppliers
+            await this.createDefaultSuppliers(companyId, userId);
+
+            logger.info(`Default data created for company ${companyId}`);
+        } catch (error) {
+            logger.error('Error creating default data:', error);
             throw error;
         }
     }
@@ -66,7 +107,10 @@ class CompanyModel {
             { name: 'Current Assets', type: 'ASSET' },
             { name: 'Fixed Assets', type: 'ASSET' },
             { name: 'Current Liabilities', type: 'LIABILITY' },
-            { name: 'Capital Account', type: 'EQUITY' }
+            { name: 'Capital Account', type: 'EQUITY' },
+            { name: 'Reserves & Surplus', type: 'EQUITY' },
+            { name: 'Sales Accounts', type: 'INCOME' },
+            { name: 'Purchase Accounts', type: 'EXPENSE' }
         ];
 
         for (const group of defaultGroups) {
@@ -78,7 +122,10 @@ class CompanyModel {
                     created_by: userId
                 });
 
-            if (error) throw error;
+            if (error) {
+                logger.error('Error creating default account group:', error);
+                throw error;
+            }
         }
     }
 
@@ -89,7 +136,10 @@ class CompanyModel {
             'Groceries',
             'Medical',
             'Clothing',
-            'Books & Stationery'
+            'Books & Stationery',
+            'Raw Materials',
+            'Finished Goods',
+            'Packaging Materials'
         ];
 
         for (const name of defaultGroups) {
@@ -101,7 +151,10 @@ class CompanyModel {
                     created_by: userId
                 });
 
-            if (error) throw error;
+            if (error) {
+                logger.error('Error creating default stock group:', error);
+                throw error;
+            }
         }
     }
 
@@ -112,7 +165,10 @@ class CompanyModel {
             { name: 'Box', symbol: 'BOX' },
             { name: 'Liter', symbol: 'LTR' },
             { name: 'Meter', symbol: 'M' },
-            { name: 'Square Feet', symbol: 'SQFT' }
+            { name: 'Square Feet', symbol: 'SQFT' },
+            { name: 'Grams', symbol: 'G' },
+            { name: 'Milliliter', symbol: 'ML' },
+            { name: 'Dozen', symbol: 'DOZ' }
         ];
 
         for (const unit of defaultUnits) {
@@ -124,7 +180,10 @@ class CompanyModel {
                     created_by: userId
                 });
 
-            if (error) throw error;
+            if (error) {
+                logger.error('Error creating default unit:', error);
+                throw error;
+            }
         }
     }
 
@@ -135,17 +194,26 @@ class CompanyModel {
             .select('id, name')
             .eq('company_id', companyId);
 
-        if (groupsError) throw groupsError;
+        if (groupsError) {
+            logger.error('Error fetching account groups:', groupsError);
+            throw groupsError;
+        }
 
         const groupMap = {};
         groups.forEach(g => groupMap[g.name] = g.id);
 
         const defaultLedgers = [
             { name: 'Cash', group: 'Cash In Hand', type: 'CASH', opening_balance: 0 },
-            { name: 'Bank', group: 'Bank Accounts', type: 'BANK', opening_balance: 0 },
-            { name: 'Capital', group: 'Capital Account', type: 'CAPITAL', opening_balance: 0 },
-            { name: 'Sales', group: 'Direct Income', type: 'INCOME' },
-            { name: 'Purchases', group: 'Direct Expenses', type: 'EXPENSE' }
+            { name: 'Bank Account', group: 'Bank Accounts', type: 'BANK', opening_balance: 0 },
+            { name: 'Capital Account', group: 'Capital Account', type: 'CAPITAL', opening_balance: 0 },
+            { name: 'Sales', group: 'Direct Income', type: 'INCOME', opening_balance: 0 },
+            { name: 'Purchases', group: 'Direct Expenses', type: 'EXPENSE', opening_balance: 0 },
+            { name: 'Salary', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
+            { name: 'Rent', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
+            { name: 'Electricity', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
+            { name: 'Telephone', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
+            { name: 'Travel', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
+            { name: 'Office Expenses', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 }
         ];
 
         for (const ledger of defaultLedgers) {
@@ -161,7 +229,52 @@ class CompanyModel {
                     created_by: userId
                 });
 
-            if (error) throw error;
+            if (error) {
+                logger.error('Error creating default ledger:', error);
+                throw error;
+            }
+        }
+    }
+
+    async createDefaultCustomers(companyId, userId) {
+        const defaultCustomers = [
+            { name: 'Walk-in Customer', mobile: '9999999999', address: 'Default Address' }
+        ];
+
+        for (const customer of defaultCustomers) {
+            const { error } = await supabase
+                .from('customers')
+                .insert({
+                    ...customer,
+                    company_id: companyId,
+                    created_by: userId
+                });
+
+            if (error) {
+                logger.error('Error creating default customer:', error);
+                throw error;
+            }
+        }
+    }
+
+    async createDefaultSuppliers(companyId, userId) {
+        const defaultSuppliers = [
+            { name: 'Default Supplier', contact_number: '8888888888', address: 'Default Address' }
+        ];
+
+        for (const supplier of defaultSuppliers) {
+            const { error } = await supabase
+                .from('suppliers')
+                .insert({
+                    ...supplier,
+                    company_id: companyId,
+                    created_by: userId
+                });
+
+            if (error) {
+                logger.error('Error creating default supplier:', error);
+                throw error;
+            }
         }
     }
 
@@ -187,14 +300,22 @@ class CompanyModel {
                         updated_at
                     )
                 `)
-                .eq('user_id', userId);
+                .eq('user_id', userId)
+                .is('companies.deleted_at', null)
+                .order('is_default', { ascending: false });
 
             if (error) throw error;
-            return data.map(item => ({
-                ...item.companies,
-                role: item.role,
-                is_default: item.is_default
-            }));
+            
+            // Filter out null companies (soft deleted)
+            const companies = data
+                .filter(item => item.companies !== null)
+                .map(item => ({
+                    ...item.companies,
+                    role: item.role,
+                    is_default: item.is_default
+                }));
+
+            return companies;
         } catch (error) {
             logger.error('Error finding companies:', error);
             throw error;
@@ -242,6 +363,22 @@ class CompanyModel {
                 throw new Error('Unauthorized: Admin access required');
             }
 
+            // Check if company name already exists (excluding current)
+            if (companyData.name) {
+                const { data: existing, error: existingError } = await supabase
+                    .from('companies')
+                    .select('id')
+                    .eq('name', companyData.name)
+                    .eq('created_by', userId)
+                    .neq('id', companyId)
+                    .is('deleted_at', null)
+                    .single();
+
+                if (existing) {
+                    throw new Error('Company with this name already exists');
+                }
+            }
+
             const { data, error } = await supabase
                 .from('companies')
                 .update(companyData)
@@ -273,9 +410,22 @@ class CompanyModel {
                 throw new Error('Unauthorized: Admin access required');
             }
 
+            // Get company name for logging
+            const { data: company, error: companyError } = await supabase
+                .from('companies')
+                .select('name')
+                .eq('id', companyId)
+                .single();
+
+            if (companyError) throw companyError;
+
+            // Soft delete company
             const { error } = await supabase
                 .from('companies')
-                .update({ deleted_at: new Date().toISOString() })
+                .update({ 
+                    deleted_at: new Date().toISOString(),
+                    name: company.name + '_deleted_' + Date.now() // Make name unique for deleted
+                })
                 .eq('id', companyId);
 
             if (error) throw error;
@@ -296,11 +446,25 @@ class CompanyModel {
 
     async setDefaultCompany(userId, companyId) {
         try {
+            // Check if user has access to this company
+            const { data: access, error: accessError } = await supabase
+                .from('user_companies')
+                .select('id')
+                .eq('user_id', userId)
+                .eq('company_id', companyId)
+                .single();
+
+            if (accessError) {
+                throw new Error('Company not found or access denied');
+            }
+
             // Reset all defaults
-            await supabase
+            const { error: resetError } = await supabase
                 .from('user_companies')
                 .update({ is_default: false })
                 .eq('user_id', userId);
+
+            if (resetError) throw resetError;
 
             // Set new default
             const { error } = await supabase
@@ -310,7 +474,18 @@ class CompanyModel {
                 .eq('company_id', companyId);
 
             if (error) throw error;
-            return true;
+
+            // Get the company details
+            const { data: company, error: companyError } = await supabase
+                .from('companies')
+                .select('*')
+                .eq('id', companyId)
+                .single();
+
+            if (companyError) throw companyError;
+
+            logger.info(`Default company set to ${companyId} for user ${userId}`);
+            return company;
         } catch (error) {
             logger.error('Error setting default company:', error);
             throw error;
@@ -326,6 +501,7 @@ class CompanyModel {
                 `)
                 .eq('user_id', userId)
                 .eq('is_default', true)
+                .is('companies.deleted_at', null)
                 .single();
 
             if (error && error.code !== 'PGRST116') throw error;
@@ -344,13 +520,15 @@ class CompanyModel {
                 { count: customersCount },
                 { count: suppliersCount },
                 { count: stockItemsCount },
-                { count: invoicesCount }
+                { count: invoicesCount },
+                { count: vouchersCount }
             ] = await Promise.all([
-                supabase.from('ledgers').select('*', { count: 'exact' }).eq('company_id', companyId),
-                supabase.from('customers').select('*', { count: 'exact' }).eq('company_id', companyId),
-                supabase.from('suppliers').select('*', { count: 'exact' }).eq('company_id', companyId),
-                supabase.from('stock_items').select('*', { count: 'exact' }).eq('company_id', companyId),
-                supabase.from('invoices').select('*', { count: 'exact' }).eq('company_id', companyId)
+                supabase.from('ledgers').select('*', { count: 'exact' }).eq('company_id', companyId).is('deleted_at', null),
+                supabase.from('customers').select('*', { count: 'exact' }).eq('company_id', companyId).is('deleted_at', null),
+                supabase.from('suppliers').select('*', { count: 'exact' }).eq('company_id', companyId).is('deleted_at', null),
+                supabase.from('stock_items').select('*', { count: 'exact' }).eq('company_id', companyId).is('deleted_at', null),
+                supabase.from('invoices').select('*', { count: 'exact' }).eq('company_id', companyId).is('deleted_at', null),
+                supabase.from('vouchers').select('*', { count: 'exact' }).eq('company_id', companyId).is('deleted_at', null)
             ]);
 
             return {
@@ -358,10 +536,44 @@ class CompanyModel {
                 customers: customersCount || 0,
                 suppliers: suppliersCount || 0,
                 stockItems: stockItemsCount || 0,
-                invoices: invoicesCount || 0
+                invoices: invoicesCount || 0,
+                vouchers: vouchersCount || 0
             };
         } catch (error) {
             logger.error('Error getting company stats:', error);
+            throw error;
+        }
+    }
+
+    async searchCompanies(userId, searchTerm) {
+        try {
+            const { data, error } = await supabase
+                .from('companies')
+                .select(`
+                    id,
+                    name,
+                    address,
+                    gst_number,
+                    financial_year,
+                    state,
+                    user_companies!inner (
+                        role,
+                        is_default
+                    )
+                `)
+                .eq('user_companies.user_id', userId)
+                .is('deleted_at', null)
+                .ilike('name', `%${searchTerm}%`)
+                .limit(10);
+
+            if (error) throw error;
+            return data.map(item => ({
+                ...item,
+                role: item.user_companies[0]?.role,
+                is_default: item.user_companies[0]?.is_default
+            }));
+        } catch (error) {
+            logger.error('Error searching companies:', error);
             throw error;
         }
     }

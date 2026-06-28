@@ -1,8 +1,10 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const { supabase } = require('../config/database');
 const UserModel = require('../models/User');
 const CompanyModel = require('../models/Company');
 const AuditLog = require('../models/AuditLog');
+const EmailService = require('../utils/email');
 const logger = require('../utils/logger');
 const { userSchema, loginSchema } = require('../utils/validators');
 
@@ -17,9 +19,22 @@ class AuthService {
             throw new Error('User already exists with this email');
         }
 
-        // Create user
-        const user = await UserModel.create(validatedData);
-        
+        // Generate verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        // Create user with verification token
+        const user = await UserModel.create({
+            ...validatedData,
+            verification_token: verificationToken,
+            verification_token_expiry: verificationTokenExpiry.toISOString()
+        });
+
+        // Send verification email (if enabled)
+        if (process.env.ENABLE_EMAIL_VERIFICATION === 'true') {
+            await EmailService.sendVerificationEmail(user.email, verificationToken);
+        }
+
         // Generate tokens
         const tokens = this.generateTokens(user);
         
@@ -28,8 +43,13 @@ class AuthService {
             user_id: user.id,
             action: 'USER_REGISTERED',
             resource_type: 'users',
-            resource_id: user.id
+            resource_id: user.id,
+            ip_address: userData.ip_address || null,
+            user_agent: userData.user_agent || null
         });
+
+        // Remove sensitive data
+        delete user.password_hash;
 
         return {
             user,
@@ -37,7 +57,7 @@ class AuthService {
         };
     }
 
-    async login(email, password) {
+    async login(email, password, ipAddress = null, userAgent = null) {
         // Validate input
         const validatedData = loginSchema.parse({ email, password });
 
@@ -49,12 +69,26 @@ class AuthService {
 
         // Check if user is active
         if (!user.is_active) {
-            throw new Error('Account is deactivated');
+            throw new Error('Account is deactivated. Please contact support.');
+        }
+
+        // Check if email is verified (if verification is enabled)
+        if (process.env.ENABLE_EMAIL_VERIFICATION === 'true' && !user.email_verified) {
+            throw new Error('Please verify your email before logging in');
         }
 
         // Verify password
         const isValid = await UserModel.verifyPassword(user, validatedData.password);
         if (!isValid) {
+            // Log failed attempt
+            await AuditLog.create({
+                user_id: user.id,
+                action: 'LOGIN_FAILED',
+                resource_type: 'users',
+                resource_id: user.id,
+                ip_address: ipAddress,
+                user_agent: userAgent
+            });
             throw new Error('Invalid credentials');
         }
 
@@ -72,12 +106,18 @@ class AuthService {
             user_id: user.id,
             action: 'USER_LOGIN',
             resource_type: 'users',
-            resource_id: user.id
+            resource_id: user.id,
+            ip_address: ipAddress,
+            user_agent: userAgent
         });
 
         // Remove sensitive data
         delete user.password_hash;
         delete user.deleted_at;
+        delete user.verification_token;
+        delete user.verification_token_expiry;
+        delete user.reset_token;
+        delete user.reset_token_expiry;
 
         return {
             user: {
@@ -136,13 +176,15 @@ class AuthService {
         }
     }
 
-    async logout(userId) {
+    async logout(userId, ipAddress = null, userAgent = null) {
         // Log audit
         await AuditLog.create({
             user_id: userId,
             action: 'USER_LOGOUT',
             resource_type: 'users',
-            resource_id: userId
+            resource_id: userId,
+            ip_address: ipAddress,
+            user_agent: userAgent
         });
 
         // Invalidate token (in a real app, add token to blacklist)
@@ -155,12 +197,14 @@ class AuthService {
             throw new Error('User not found');
         }
 
+        // Get full user with password hash
+        const fullUser = await UserModel.findByEmail(user.email);
+        if (!fullUser) {
+            throw new Error('User not found');
+        }
+
         // Verify current password
-        const isValid = await UserModel.verifyPassword(
-            await UserModel.findByEmail(user.email),
-            currentPassword
-        );
-        
+        const isValid = await UserModel.verifyPassword(fullUser, currentPassword);
         if (!isValid) {
             throw new Error('Current password is incorrect');
         }
@@ -179,48 +223,42 @@ class AuthService {
         return { success: true };
     }
 
-    async forgotPassword(email) {
+    async forgotPassword(email, ipAddress = null, userAgent = null) {
         const user = await UserModel.findByEmail(email);
         if (!user) {
-            // Don't reveal if user exists or not
-            return { success: true };
+            // Don't reveal if user exists or not for security
+            return { success: true, message: 'If an account exists, a reset link has been sent' };
         }
 
         // Generate reset token
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenExpiry = Date.now() + 3600000; // 1 hour
+        const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
 
         // Save reset token to user
         await UserModel.update(user.id, {
             reset_token: resetToken,
-            reset_token_expiry: new Date(resetTokenExpiry).toISOString()
+            reset_token_expiry: resetTokenExpiry.toISOString()
         });
 
-        // In production, send email with reset link
-        // For now, just log the token
-        logger.info(`Password reset token for ${email}: ${resetToken}`);
+        // Send reset email
+        await EmailService.sendPasswordResetEmail(email, resetToken);
 
         // Log audit
         await AuditLog.create({
             user_id: user.id,
             action: 'PASSWORD_RESET_REQUESTED',
             resource_type: 'users',
-            resource_id: user.id
+            resource_id: user.id,
+            ip_address: ipAddress,
+            user_agent: userAgent
         });
 
-        return { success: true };
+        return { success: true, message: 'If an account exists, a reset link has been sent' };
     }
 
-    async resetPassword(token, newPassword) {
-        // Find user with reset token
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('reset_token', token)
-            .gt('reset_token_expiry', new Date().toISOString())
-            .single();
-
-        if (error || !user) {
+    async resetPassword(token, newPassword, ipAddress = null, userAgent = null) {
+        const user = await UserModel.findByResetToken(token);
+        if (!user) {
             throw new Error('Invalid or expired reset token');
         }
 
@@ -236,8 +274,57 @@ class AuthService {
             user_id: user.id,
             action: 'PASSWORD_RESET_COMPLETED',
             resource_type: 'users',
-            resource_id: user.id
+            resource_id: user.id,
+            ip_address: ipAddress,
+            user_agent: userAgent
         });
+
+        return { success: true };
+    }
+
+    async verifyEmail(token, ipAddress = null, userAgent = null) {
+        const user = await UserModel.findByVerificationToken(token);
+        if (!user) {
+            throw new Error('Invalid or expired verification token');
+        }
+
+        // Verify email
+        await UserModel.verifyEmail(user.id);
+
+        // Log audit
+        await AuditLog.create({
+            user_id: user.id,
+            action: 'EMAIL_VERIFIED',
+            resource_type: 'users',
+            resource_id: user.id,
+            ip_address: ipAddress,
+            user_agent: userAgent
+        });
+
+        return { success: true };
+    }
+
+    async resendVerificationEmail(email) {
+        const user = await UserModel.findByEmail(email);
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        if (user.email_verified) {
+            throw new Error('Email already verified');
+        }
+
+        // Generate new verification token
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await UserModel.update(user.id, {
+            verification_token: verificationToken,
+            verification_token_expiry: verificationTokenExpiry.toISOString()
+        });
+
+        // Send verification email
+        await EmailService.sendVerificationEmail(email, verificationToken);
 
         return { success: true };
     }
@@ -251,9 +338,16 @@ class AuthService {
                 throw new Error('User not found');
             }
 
+            if (!user.is_active) {
+                throw new Error('Account is deactivated');
+            }
+
             return user;
         } catch (error) {
             logger.error('Token verification error:', error);
+            if (error.name === 'TokenExpiredError') {
+                throw new Error('Token expired');
+            }
             throw new Error('Invalid token');
         }
     }
@@ -266,6 +360,32 @@ class AuthService {
             ...user,
             companies
         };
+    }
+
+    async getSession(userId) {
+        const user = await this.getCurrentUser(userId);
+        return {
+            user,
+            session: {
+                id: userId,
+                created_at: new Date().toISOString()
+            }
+        };
+    }
+
+    async validateSession(token) {
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            const user = await UserModel.findById(decoded.id);
+            
+            if (!user || !user.is_active) {
+                return null;
+            }
+
+            return user;
+        } catch (error) {
+            return null;
+        }
     }
 }
 

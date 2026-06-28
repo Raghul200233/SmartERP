@@ -28,6 +28,14 @@ router.post('/reset-password',
     AuthController.resetPassword
 );
 
+router.post('/verify-email',
+    AuthController.verifyEmail
+);
+
+router.post('/resend-verification',
+    AuthController.resendVerification
+);
+
 router.post('/verify-token',
     AuthController.verifyToken
 );
@@ -45,6 +53,10 @@ router.post('/change-password',
 
 router.get('/me',
     AuthController.getMe
+);
+
+router.get('/session',
+    AuthController.getSession
 );
 
 module.exports = router;

@@ -66,20 +66,27 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/health', async (req, res) => {
-    const dbStatus = await healthCheck();
-    res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        database: dbStatus,
-        environment: process.env.NODE_ENV
-    });
+    try {
+        const dbStatus = await healthCheck();
+        res.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            database: dbStatus,
+            environment: process.env.NODE_ENV || 'development'
+        });
+    } catch (error) {
+        res.status(500).json({
+            status: 'error',
+            timestamp: new Date().toISOString(),
+            error: error.message
+        });
+    }
 });
 
 // API Routes
 app.use('/api/v1/auth', require('./routes/v1/auth.routes'));
 app.use('/api/v1/companies', require('./routes/v1/company.routes'));
-// More routes will be added
 
 // Error handling
 app.use(errorHandler);
@@ -94,9 +101,10 @@ app.use((req, res) => {
 
 // Start server
 app.listen(PORT, () => {
-    logger.info(`🚀 Server running on port ${PORT}`);
-    logger.info(`🔧 Environment: ${process.env.NODE_ENV}`);
-    logger.info(`📚 API Base URL: http://localhost:${PORT}/api/v1`);
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📚 API Base URL: http://localhost:${PORT}/api/v1`);
+    console.log(`❤️  Health Check: http://localhost:${PORT}/health`);
 });
 
 module.exports = app;

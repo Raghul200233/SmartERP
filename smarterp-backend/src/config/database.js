@@ -7,7 +7,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseServiceKey) {
-    throw new Error('Missing Supabase credentials');
+    throw new Error('Missing Supabase credentials. Please check your .env file');
 }
 
 // Service client (admin privileges)
@@ -22,79 +22,12 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 // Anonymous client (for public operations)
-const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey, {
+const supabaseAnon = supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
         autoRefreshToken: true,
         persistSession: true
     }
-});
-
-// Connection pool monitoring
-class ConnectionPool {
-    constructor() {
-        this.activeConnections = 0;
-        this.maxConnections = 20;
-        this.queries = [];
-        this.queryCount = 0;
-        this.errorCount = 0;
-    }
-
-    async executeQuery(query, params = []) {
-        const startTime = Date.now();
-        this.activeConnections++;
-        this.queryCount++;
-
-        try {
-            const result = await supabase.rpc(query, params);
-            const duration = Date.now() - startTime;
-            
-            this.queries.push({
-                query,
-                duration,
-                timestamp: new Date(),
-                success: true
-            });
-
-            // Log slow queries
-            if (duration > 1000) {
-                logger.warn(`Slow query detected: ${query} took ${duration}ms`);
-            }
-
-            return result;
-        } catch (error) {
-            this.errorCount++;
-            logger.error(`Query error: ${error.message}`, { query, error });
-            throw error;
-        } finally {
-            this.activeConnections--;
-        }
-    }
-
-    async transaction(callback) {
-        try {
-            // Start transaction
-            await this.executeQuery('BEGIN');
-            const result = await callback();
-            await this.executeQuery('COMMIT');
-            return result;
-        } catch (error) {
-            await this.executeQuery('ROLLBACK');
-            throw error;
-        }
-    }
-
-    getStats() {
-        return {
-            activeConnections: this.activeConnections,
-            maxConnections: this.maxConnections,
-            totalQueries: this.queryCount,
-            totalErrors: this.errorCount,
-            recentQueries: this.queries.slice(-10)
-        };
-    }
-}
-
-const pool = new ConnectionPool();
+}) : null;
 
 // Health check
 const healthCheck = async () => {
@@ -108,11 +41,32 @@ const healthCheck = async () => {
     }
 };
 
+// Simple query executor
+const executeQuery = async (query, params = []) => {
+    try {
+        const result = await supabase.rpc(query, params);
+        return result;
+    } catch (error) {
+        logger.error('Query execution error:', error);
+        throw error;
+    }
+};
+
+// Simple transaction helper
+const transaction = async (callback) => {
+    try {
+        const result = await callback();
+        return result;
+    } catch (error) {
+        logger.error('Transaction error:', error);
+        throw error;
+    }
+};
+
 module.exports = {
     supabase,
     supabaseAnon,
-    pool,
     healthCheck,
-    executeQuery: pool.executeQuery.bind(pool),
-    transaction: pool.transaction.bind(pool)
+    executeQuery,
+    transaction
 };
