@@ -6,7 +6,58 @@ import LoginPage from './pages/Login';
 import RegisterPage from './pages/Register';
 import CompanyPage from './pages/Company';
 import DashboardPage from './pages/DashboardPage';
+import LedgerPage from './pages/LedgerPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+
+// Placeholder components for missing pages
+const StockPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Stock Management</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
+
+const VoucherPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Vouchers</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
+
+const BillingPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Billing</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
+
+const CustomerPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
+
+const SupplierPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
+
+const ReportsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Reports</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
+
+const SettingsPage = () => (
+  <div className="p-6">
+    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+  </div>
+);
 
 export const AppRoutes = () => {
   return (
@@ -44,6 +95,14 @@ export const AppRoutes = () => {
           <Route element={<MainLayout />}>
             <Route path="/" element={<Navigate to="/dashboard" />} />
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/ledgers" element={<LedgerPage />} />
+            <Route path="/stock" element={<StockPage />} />
+            <Route path="/vouchers" element={<VoucherPage />} />
+            <Route path="/billing" element={<BillingPage />} />
+            <Route path="/customers" element={<CustomerPage />} />
+            <Route path="/suppliers" element={<SupplierPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Routes>
