@@ -87,25 +87,74 @@ class StockGroupModel {
         }
     }
 
-    async update(id, companyId, groupData) {
-        try {
-            const { data, error } = await supabase
+async update(id, companyId, groupData) {
+    try {
+        console.log('Model update called:', { id, companyId, groupData });
+
+        // Check if group exists
+        const { data: existing, error: existingError } = await supabase
+            .from('stock_groups')
+            .select('id, name')
+            .eq('id', id)
+            .eq('company_id', companyId)
+            .is('deleted_at', null)
+            .single();
+
+        if (existingError) {
+            console.error('Error finding group:', existingError);
+            throw new Error('Stock group not found');
+        }
+
+        if (!existing) {
+            throw new Error('Stock group not found');
+        }
+
+        // Check if another group has the same name
+        if (groupData.name) {
+            const { data: duplicate, error: duplicateError } = await supabase
                 .from('stock_groups')
-                .update(groupData)
-                .eq('id', id)
+                .select('id')
+                .eq('name', groupData.name)
                 .eq('company_id', companyId)
-                .select()
+                .neq('id', id)
+                .is('deleted_at', null)
                 .single();
 
-            if (error) throw error;
-
-            logger.info(`Stock group updated: ${data.name}`);
-            return data;
-        } catch (error) {
-            logger.error('Error updating stock group:', error);
-            throw error;
+            if (duplicate) {
+                throw new Error('A stock group with this name already exists');
+            }
         }
+
+        // Prepare update data
+        const updateData = {
+            name: groupData.name,
+            parent_id: groupData.parent_id || null,
+            updated_at: new Date().toISOString()
+        };
+
+        console.log('Update data:', updateData);
+
+        // Update the group
+        const { data, error } = await supabase
+            .from('stock_groups')
+            .update(updateData)
+            .eq('id', id)
+            .eq('company_id', companyId)
+            .select()
+            .single();
+
+        if (error) {
+            console.error('Supabase update error:', error);
+            throw new Error(`Database error: ${error.message}`);
+        }
+
+        console.log('Update successful:', data);
+        return data;
+    } catch (error) {
+        console.error('Error updating stock group:', error);
+        throw error;
     }
+}
 
     async softDelete(id, companyId) {
         try {

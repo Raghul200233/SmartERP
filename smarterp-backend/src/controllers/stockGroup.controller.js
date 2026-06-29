@@ -15,6 +15,14 @@ class StockGroupController {
                 });
             }
 
+            // Validate required fields
+            if (!groupData.name || !groupData.name.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Group name is required'
+                });
+            }
+
             const group = await StockGroupModel.create(groupData, req.user.id, companyId);
 
             await AuditLog.create({
@@ -32,55 +40,12 @@ class StockGroupController {
             });
         } catch (error) {
             logger.error('Create stock group error:', error);
-            next(error);
-        }
-    }
-
-    async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
-
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const groups = await StockGroupModel.findAll(companyId);
-
-            res.json({
-                success: true,
-                data: groups,
-                count: groups.length
+            
+            // Send specific error message
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to create stock group'
             });
-        } catch (error) {
-            logger.error('Get stock groups error:', error);
-            next(error);
-        }
-    }
-
-    async getById(req, res, next) {
-        try {
-            const { id } = req.params;
-            const { companyId } = req.query;
-
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const group = await StockGroupModel.findById(id, companyId);
-
-            res.json({
-                success: true,
-                data: group
-            });
-        } catch (error) {
-            logger.error('Get stock group error:', error);
-            next(error);
         }
     }
 
@@ -90,6 +55,8 @@ class StockGroupController {
             const { companyId } = req.query;
             const groupData = req.body;
 
+            console.log('Update request:', { id, companyId, groupData });
+
             if (!companyId) {
                 return res.status(400).json({
                     success: false,
@@ -97,7 +64,25 @@ class StockGroupController {
                 });
             }
 
-            const group = await StockGroupModel.update(id, companyId, groupData);
+            if (!id) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Group ID is required'
+                });
+            }
+
+            // Validate required fields
+            if (!groupData.name || !groupData.name.trim()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Group name is required'
+                });
+            }
+
+            const group = await StockGroupModel.update(id, companyId, {
+                name: groupData.name.trim(),
+                parent_id: groupData.parent_id || null
+            });
 
             await AuditLog.create({
                 user_id: req.user.id,
@@ -113,8 +98,14 @@ class StockGroupController {
                 data: group
             });
         } catch (error) {
+            console.error('Update stock group error:', error);
             logger.error('Update stock group error:', error);
-            next(error);
+            
+            // Send specific error message
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to update stock group'
+            });
         }
     }
 

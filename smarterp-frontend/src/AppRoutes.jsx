@@ -8,14 +8,7 @@ import CompanyPage from './pages/Company';
 import DashboardPage from './pages/DashboardPage';
 import LedgerPage from './pages/LedgerPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
-
-// Placeholder components for missing pages
-const StockPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Stock Management</h1>
-    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-  </div>
-);
+import StockPage from './pages/StockPage';
 
 const VoucherPage = () => (
   <div className="p-6">
