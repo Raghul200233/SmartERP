@@ -90,13 +90,13 @@ class InvoiceModel {
         return `INV-${String(newNumber).padStart(6, '0')}`;
     }
 
-    async findAll(companyId, filters = {}) {
+async findAll(companyId, filters = {}) {
         try {
             let query = supabase
                 .from('invoices')
                 .select(`
                     *,
-                    customers!inner (
+                    customers (
                         id,
                         name,
                         mobile,
@@ -130,8 +130,12 @@ class InvoiceModel {
 
             const { data, error } = await query;
 
-            if (error) throw error;
-            return data;
+            if (error) {
+                logger.error('Supabase error in findAll:', error);
+                throw error;
+            }
+            
+            return data || [];
         } catch (error) {
             logger.error('Error finding invoices:', error);
             throw error;

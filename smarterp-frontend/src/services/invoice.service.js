@@ -2,13 +2,24 @@ import api from './api';
 
 export const invoiceService = {
   async getAll(companyId, filters = {}) {
-    const params = new URLSearchParams({
-      companyId,
-      ...filters
-    });
-    const response = await api.get(`/invoices?${params}`);
-    return response.data.data;
-  },
+        try {
+            const params = new URLSearchParams({
+                companyId,
+                ...filters
+            });
+            const response = await api.get(`/invoices?${params}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching invoices:', error);
+            // Return empty data structure
+            return {
+                success: false,
+                data: [],
+                count: 0,
+                message: error.response?.data?.message || 'Failed to fetch invoices'
+            };
+        }
+    },
 
   async getById(companyId, id) {
     const response = await api.get(`/invoices/${id}?companyId=${companyId}`);

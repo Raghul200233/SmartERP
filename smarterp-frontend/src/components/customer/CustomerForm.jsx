@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, User, Phone, Mail, Building2, CreditCard } from 'lucide-react';
+import { X, Loader2, User, Phone } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { useCustomerStore } from '../../store/customerStore';
 import { customerService } from '../../services/customer.service';
@@ -10,11 +10,7 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
   const { setLoading } = useCustomerStore();
   const [formData, setFormData] = useState({
     name: '',
-    mobile: '',
-    email: '',
-    address: '',
-    gst_number: '',
-    outstanding_balance: 0
+    mobile: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLocalLoading] = useState(false);
@@ -25,11 +21,7 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
     if (customer) {
       setFormData({
         name: customer.name || '',
-        mobile: customer.mobile || '',
-        email: customer.email || '',
-        address: customer.address || '',
-        gst_number: customer.gst_number || '',
-        outstanding_balance: customer.outstanding_balance || 0
+        mobile: customer.mobile || ''
       });
     }
   }, [customer]);
@@ -39,14 +31,8 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
     if (!formData.name.trim()) {
       newErrors.name = 'Customer name is required';
     }
-    if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Invalid email format';
-    }
     if (formData.mobile && !/^[0-9]{10}$/.test(formData.mobile)) {
       newErrors.mobile = 'Invalid mobile number (10 digits required)';
-    }
-    if (formData.gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gst_number)) {
-      newErrors.gst_number = 'Invalid GST number format';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -61,8 +47,8 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
       setLoading(true);
 
       const data = {
-        ...formData,
-        outstanding_balance: parseFloat(formData.outstanding_balance) || 0
+        name: formData.name.trim(),
+        mobile: formData.mobile || null
       };
 
       if (isEdit) {
@@ -86,7 +72,7 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEdit ? 'Edit Customer' : 'New Customer'}
@@ -100,9 +86,9 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             {/* Customer Name */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Customer Name *
               </label>
@@ -139,82 +125,6 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
                 />
               </div>
               {errors.mobile && <p className="mt-1 text-sm text-red-500">{errors.mobile}</p>}
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                    errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  placeholder="customer@example.com"
-                />
-              </div>
-              {errors.email && <p className="mt-1 text-sm text-red-500">{errors.email}</p>}
-            </div>
-
-            {/* GST Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                GST Number
-              </label>
-              <div className="relative">
-                <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={formData.gst_number}
-                  onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                    errors.gst_number ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  placeholder="22AAAAA0000A1Z5"
-                />
-              </div>
-              {errors.gst_number && <p className="mt-1 text-sm text-red-500">{errors.gst_number}</p>}
-            </div>
-
-            {/* Outstanding Balance */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Outstanding Balance (₹)
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="number"
-                  value={formData.outstanding_balance}
-                  onChange={(e) => setFormData({ ...formData, outstanding_balance: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                />
-              </div>
-            </div>
-
-            {/* Address */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Address
-              </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  rows="3"
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter customer address"
-                />
-              </div>
             </div>
           </div>
 

@@ -41,25 +41,31 @@ export const InvoiceList = ({ onEdit, onView, onAdd }) => {
     }
   }, [currentCompany]);
 
-  const fetchInvoices = async () => {
+const fetchInvoices = async () => {
     try {
-      setIsLoading(true);
-      const filters = {};
-      if (searchTerm) filters.search = searchTerm;
-      if (filterStatus) filters.status = filterStatus;
-      if (filterType) filters.type = filterType;
-      if (startDate) filters.startDate = startDate;
-      if (endDate) filters.endDate = endDate;
+        setIsLoading(true);
+        const filters = {};
+        if (searchTerm) filters.search = searchTerm;
+        if (filterStatus) filters.status = filterStatus;
+        if (filterType) filters.type = filterType;
+        if (startDate) filters.startDate = startDate;
+        if (endDate) filters.endDate = endDate;
 
-      const data = await invoiceService.getAll(currentCompany.id, filters);
-      setInvoices(data);
+        const response = await invoiceService.getAll(currentCompany.id, filters);
+        if (response.success === false) {
+            toast.error(response.message || 'Failed to load invoices');
+            setInvoices([]);
+        } else {
+            setInvoices(response.data || []);
+        }
     } catch (error) {
-      console.error('Error fetching invoices:', error);
-      toast.error('Failed to load invoices');
+        console.error('Error fetching invoices:', error);
+        toast.error('Failed to load invoices');
+        setInvoices([]);
     } finally {
-      setIsLoading(false);
+        setIsLoading(false);
     }
-  };
+};
 
   const handleDelete = async (invoice) => {
     if (!window.confirm(`Are you sure you want to delete invoice ${invoice.invoice_number}?`)) {

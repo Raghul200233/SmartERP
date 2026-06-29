@@ -20,10 +20,6 @@ class CustomerModel {
             const newCustomer = {
                 name: customerData.name,
                 mobile: customerData.mobile || null,
-                address: customerData.address || null,
-                gst_number: customerData.gst_number || null,
-                email: customerData.email || null,
-                outstanding_balance: customerData.outstanding_balance || 0,
                 company_id: companyId,
                 created_by: userId
             };
@@ -48,16 +44,12 @@ class CustomerModel {
         try {
             let query = supabase
                 .from('customers')
-                .select('*')
+                .select('id, name, mobile, created_at')
                 .eq('company_id', companyId)
                 .is('deleted_at', null);
 
             if (filters.search) {
                 query = query.ilike('name', `%${filters.search}%`);
-            }
-
-            if (filters.has_outstanding) {
-                query = query.gt('outstanding_balance', 0);
             }
 
             const { data, error } = await query.order('name');
@@ -74,7 +66,7 @@ class CustomerModel {
         try {
             const { data, error } = await supabase
                 .from('customers')
-                .select('*')
+                .select('id, name, mobile, created_at')
                 .eq('id', id)
                 .eq('company_id', companyId)
                 .is('deleted_at', null)
@@ -92,7 +84,10 @@ class CustomerModel {
         try {
             const { data, error } = await supabase
                 .from('customers')
-                .update(customerData)
+                .update({
+                    name: customerData.name,
+                    mobile: customerData.mobile || null
+                })
                 .eq('id', id)
                 .eq('company_id', companyId)
                 .select()
@@ -113,8 +108,7 @@ class CustomerModel {
             const { error } = await supabase
                 .from('customers')
                 .update({ 
-                    deleted_at: new Date().toISOString(),
-                    name: 'deleted_' + Date.now() // Make name unique
+                    deleted_at: new Date().toISOString()
                 })
                 .eq('id', id)
                 .eq('company_id', companyId);
@@ -129,77 +123,11 @@ class CustomerModel {
         }
     }
 
-    async getLedger(id, companyId, startDate, endDate) {
-        try {
-            // Get all transactions for this customer
-            let query = supabase
-                .from('vouchers')
-                .select(`
-                    id,
-                    voucher_number,
-                    voucher_type,
-                    date,
-                    amount,
-                    narration,
-                    voucher_entries!inner (
-                        amount,
-                        entry_type
-                    )
-                `)
-                .eq('ledger_id', id)
-                .eq('company_id', companyId)
-                .is('deleted_at', null);
-
-            if (startDate) {
-                query = query.gte('date', startDate);
-            }
-
-            if (endDate) {
-                query = query.lte('date', endDate);
-            }
-
-            query = query.order('date', { ascending: true });
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-
-            // Format ledger entries
-            const ledger = data.map(voucher => {
-                let debit = 0;
-                let credit = 0;
-                
-                for (const entry of voucher.voucher_entries) {
-                    if (entry.entry_type === 'DEBIT') {
-                        debit += entry.amount;
-                    } else {
-                        credit += entry.amount;
-                    }
-                }
-
-                return {
-                    date: voucher.date,
-                    voucher_number: voucher.voucher_number,
-                    voucher_type: voucher.voucher_type,
-                    narration: voucher.narration,
-                    debit,
-                    credit,
-                    balance: debit - credit
-                };
-            });
-
-            return ledger;
-        } catch (error) {
-            logger.error('Error getting customer ledger:', error);
-            throw error;
-        }
-    }
-
     async search(companyId, searchTerm) {
         try {
             const { data, error } = await supabase
                 .from('customers')
-                .select('*')
+                .select('id, name, mobile')
                 .eq('company_id', companyId)
                 .is('deleted_at', null)
                 .ilike('name', `%${searchTerm}%`)

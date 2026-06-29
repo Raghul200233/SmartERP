@@ -40,7 +40,7 @@ class InvoiceController {
         }
     }
 
-    async getAll(req, res, next) {
+async getAll(req, res, next) {
         try {
             const { companyId } = req.query;
             const filters = {
@@ -62,14 +62,15 @@ class InvoiceController {
 
             res.json({
                 success: true,
-                data: invoices,
-                count: invoices.length
+                data: invoices || [],
+                count: invoices?.length || 0
             });
         } catch (error) {
             logger.error('Get invoices error:', error);
             res.status(500).json({
                 success: false,
-                message: error.message || 'Failed to fetch invoices'
+                message: error.message || 'Failed to fetch invoices',
+                error: process.env.NODE_ENV === 'development' ? error.stack : undefined
             });
         }
     }

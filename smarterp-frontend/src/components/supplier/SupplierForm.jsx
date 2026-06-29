@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Truck, Phone, Building2, CreditCard } from 'lucide-react';
+import { X, Loader2, Truck, Phone, Building2, CreditCard ,DollarSign} from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { useSupplierStore } from '../../store/supplierStore';
 import { supplierService } from '../../services/supplier.service';
@@ -86,13 +86,17 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEdit ? 'Edit Supplier' : 'New Supplier'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Supplier Name */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Supplier Name *
@@ -112,6 +116,7 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
               {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
             </div>
 
+            {/* Contact Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Contact Number
@@ -131,6 +136,7 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
               {errors.contact_number && <p className="mt-1 text-sm text-red-500">{errors.contact_number}</p>}
             </div>
 
+            {/* GST Number */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 GST Number
@@ -150,21 +156,26 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
               {errors.gst_number && <p className="mt-1 text-sm text-red-500">{errors.gst_number}</p>}
             </div>
 
+            {/* Outstanding Dues */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Outstanding Dues (₹)
               </label>
-              <input
-                type="number"
-                value={formData.outstanding_dues}
-                onChange={(e) => setFormData({ ...formData, outstanding_dues: parseFloat(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-              />
+              <div className="relative">
+                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="number"
+                  value={formData.outstanding_dues}
+                  onChange={(e) => setFormData({ ...formData, outstanding_dues: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                />
+              </div>
             </div>
 
+            {/* Address */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Address
