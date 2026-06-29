@@ -32,7 +32,10 @@ class UnitController {
             });
         } catch (error) {
             logger.error('Create unit error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to create unit'
+            });
         }
     }
 
@@ -56,7 +59,10 @@ class UnitController {
             });
         } catch (error) {
             logger.error('Get units error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch units'
+            });
         }
     }
 
@@ -74,13 +80,23 @@ class UnitController {
 
             const unit = await UnitModel.findById(id, companyId);
 
+            if (!unit) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Unit not found'
+                });
+            }
+
             res.json({
                 success: true,
                 data: unit
             });
         } catch (error) {
             logger.error('Get unit error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch unit'
+            });
         }
     }
 
@@ -114,7 +130,10 @@ class UnitController {
             });
         } catch (error) {
             logger.error('Update unit error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to update unit'
+            });
         }
     }
 
@@ -146,7 +165,10 @@ class UnitController {
             });
         } catch (error) {
             logger.error('Delete unit error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to delete unit'
+            });
         }
     }
 }

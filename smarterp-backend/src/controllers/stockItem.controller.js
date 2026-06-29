@@ -32,7 +32,10 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Create stock item error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to create stock item'
+            });
         }
     }
 
@@ -60,7 +63,10 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Get stock items error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch stock items'
+            });
         }
     }
 
@@ -78,13 +84,23 @@ class StockItemController {
 
             const item = await StockItemModel.findById(id, companyId);
 
+            if (!item) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Stock item not found'
+                });
+            }
+
             res.json({
                 success: true,
                 data: item
             });
         } catch (error) {
             logger.error('Get stock item error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch stock item'
+            });
         }
     }
 
@@ -118,7 +134,10 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Update stock item error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to update stock item'
+            });
         }
     }
 
@@ -150,7 +169,10 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Delete stock item error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to delete stock item'
+            });
         }
     }
 
@@ -173,7 +195,10 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Get low stock error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch low stock items'
+            });
         }
     }
 
@@ -196,7 +221,10 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Get stock value error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch stock value'
+            });
         }
     }
 
@@ -226,9 +254,13 @@ class StockItemController {
             });
         } catch (error) {
             logger.error('Search stock items error:', error);
-            next(error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to search stock items'
+            });
         }
     }
 }
+
 
 module.exports = new StockItemController();

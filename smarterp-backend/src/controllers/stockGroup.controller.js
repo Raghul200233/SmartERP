@@ -15,7 +15,6 @@ class StockGroupController {
                 });
             }
 
-            // Validate required fields
             if (!groupData.name || !groupData.name.trim()) {
                 return res.status(400).json({
                     success: false,
@@ -40,11 +39,70 @@ class StockGroupController {
             });
         } catch (error) {
             logger.error('Create stock group error:', error);
-            
-            // Send specific error message
             res.status(400).json({
                 success: false,
                 message: error.message || 'Failed to create stock group'
+            });
+        }
+    }
+
+    async getAll(req, res, next) {
+        try {
+            const { companyId } = req.query;
+
+            if (!companyId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Company ID is required'
+                });
+            }
+
+            const groups = await StockGroupModel.findAll(companyId);
+
+            res.json({
+                success: true,
+                data: groups,
+                count: groups.length
+            });
+        } catch (error) {
+            logger.error('Get stock groups error:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch stock groups'
+            });
+        }
+    }
+
+    async getById(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { companyId } = req.query;
+
+            if (!companyId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Company ID is required'
+                });
+            }
+
+            const group = await StockGroupModel.findById(id, companyId);
+
+            if (!group) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Stock group not found'
+                });
+            }
+
+            res.json({
+                success: true,
+                data: group
+            });
+        } catch (error) {
+            logger.error('Get stock group error:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch stock group'
             });
         }
     }
@@ -55,8 +113,6 @@ class StockGroupController {
             const { companyId } = req.query;
             const groupData = req.body;
 
-            console.log('Update request:', { id, companyId, groupData });
-
             if (!companyId) {
                 return res.status(400).json({
                     success: false,
@@ -64,14 +120,6 @@ class StockGroupController {
                 });
             }
 
-            if (!id) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Group ID is required'
-                });
-            }
-
-            // Validate required fields
             if (!groupData.name || !groupData.name.trim()) {
                 return res.status(400).json({
                     success: false,
@@ -98,10 +146,7 @@ class StockGroupController {
                 data: group
             });
         } catch (error) {
-            console.error('Update stock group error:', error);
             logger.error('Update stock group error:', error);
-            
-            // Send specific error message
             res.status(400).json({
                 success: false,
                 message: error.message || 'Failed to update stock group'
@@ -137,7 +182,10 @@ class StockGroupController {
             });
         } catch (error) {
             logger.error('Delete stock group error:', error);
-            next(error);
+            res.status(400).json({
+                success: false,
+                message: error.message || 'Failed to delete stock group'
+            });
         }
     }
 }
