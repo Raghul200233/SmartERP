@@ -154,6 +154,9 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
     try {
       setLocalLoading(true);
 
+      // Get the customer details
+      const customer = customers.find(c => c.id === formData.customer_id);
+
       // Find Sales ledger (Direct Income)
       const salesLedger = ledgers.find(l => l.name === 'Sales' || l.ledger_type === 'INCOME');
       

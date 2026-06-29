@@ -4,6 +4,21 @@ const logger = require('../utils/logger');
 class VoucherModel {
     async create(voucherData, userId, companyId) {
         try {
+        
+        if (ledgerId) {
+            // Check if ledger exists
+            const { data: ledger, error: ledgerError } = await supabase
+                .from('ledgers')
+                .select('id')
+                .eq('id', ledgerId)
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .single();
+
+            if (ledgerError || !ledger) {
+                 throw new Error(`Ledger not found: ${voucherData.ledger_id}`);
+            }
+        }
             // Generate voucher number
             const voucherNumber = await this.generateVoucherNumber(voucherData.voucher_type, companyId);
 
@@ -53,6 +68,94 @@ class VoucherModel {
             throw error;
         }
     }
+
+    async getOrCreateLedger(name, type, companyId, userId) {
+    try {
+        // Try to find existing ledger
+        const { data: existing, error: findError } = await supabase
+            .from('ledgers')
+            .select('id')
+            .eq('name', name)
+            .eq('company_id', companyId)
+            .is('deleted_at', null)
+            .single();
+
+        if (existing) {
+            return existing.id;
+        }
+
+        // Get default group for this type
+        const groupMap = {
+            'CUSTOMER': 'Sundry Debtors',
+            'SUPPLIER': 'Sundry Creditors',
+            'BANK': 'Bank Accounts',
+            'CASH': 'Cash In Hand'
+        };
+
+        const groupName = groupMap[type] || 'Sundry Debtors';
+        
+        // Find the group
+        const { data: group, error: groupError } = await supabase
+            .from('account_groups')
+            .select('id')
+            .eq('name', groupName)
+            .eq('company_id', companyId)
+            .single();
+
+        if (groupError) {
+            // If group doesn't exist, create it
+            const { data: newGroup, error: createGroupError } = await supabase
+                .from('account_groups')
+                .insert({
+                    name: groupName,
+                    type: type === 'SUPPLIER' ? 'LIABILITY' : 'ASSET',
+                    company_id: companyId,
+                    created_by: userId
+                })
+                .select()
+                .single();
+
+            if (createGroupError) throw createGroupError;
+            
+            // Create ledger with new group
+            const { data: newLedger, error: createError } = await supabase
+                .from('ledgers')
+                .insert({
+                    name: name,
+                    ledger_type: type,
+                    group_id: newGroup.id,
+                    company_id: companyId,
+                    status: 'ACTIVE',
+                    created_by: userId
+                })
+                .select()
+                .single();
+
+            if (createError) throw createError;
+            return newLedger.id;
+        }
+
+        // Create ledger with existing group
+        const { data: newLedger, error: createError } = await supabase
+            .from('ledgers')
+            .insert({
+                name: name,
+                ledger_type: type,
+                group_id: group.id,
+                company_id: companyId,
+                status: 'ACTIVE',
+                created_by: userId
+            })
+            .select()
+            .single();
+
+        if (createError) throw createError;
+        return newLedger.id;
+    } catch (error) {
+        logger.error('Error getting/creating ledger:', error);
+        throw error;
+    }
+}
 
     async createEntry(entryData) {
         const { error } = await supabase

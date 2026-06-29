@@ -153,18 +153,6 @@ export const VoucherList = ({ onEdit, onView, onAdd }) => {
   >
     Sales
   </button>
-  <button
-    onClick={() => onAdd('PAYMENT')}
-    className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-  >
-    Payment
-  </button>
-  <button
-    onClick={() => onAdd('RECEIPT')}
-    className="px-3 py-1.5 text-sm bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition-colors"
-  >
-    Receipt
-  </button>
 </div>
       </div>
 

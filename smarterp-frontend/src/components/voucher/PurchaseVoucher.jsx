@@ -158,6 +158,9 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     try {
       setLocalLoading(true);
 
+      // Get the supplier details
+      const supplier = suppliers.find(s => s.id === formData.supplier_id);
+
       // Find Purchase ledger (Direct Expenses)
       const purchaseLedger = ledgers.find(l => l.name === 'Purchases' || l.ledger_type === 'EXPENSE');
       

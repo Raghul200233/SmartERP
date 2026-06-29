@@ -30,12 +30,76 @@ class CustomerModel {
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (customerError) throw customerError;
+
+             await this.createCustomerLedger(customer, userId, companyId);
 
             logger.info(`Customer created: ${data.name}`);
             return data;
         } catch (error) {
             logger.error('Error creating customer:', error);
+            throw error;
+        }
+    }
+
+        async createCustomerLedger(customer, userId, companyId) {
+        try {
+            // Find Sundry Debtors group
+            const { data: group, error: groupError } = await supabase
+                .from('account_groups')
+                .select('id')
+                .eq('name', 'Sundry Debtors')
+                .eq('company_id', companyId)
+                .single();
+
+            if (groupError) {
+                // Create group if it doesn't exist
+                const { data: newGroup, error: createGroupError } = await supabase
+                    .from('account_groups')
+                    .insert({
+                        name: 'Sundry Debtors',
+                        type: 'ASSET',
+                        company_id: companyId,
+                        created_by: userId
+                    })
+                    .select()
+                    .single();
+
+                if (createGroupError) throw createGroupError;
+
+                // Create ledger with new group
+                const { error: ledgerError } = await supabase
+                    .from('ledgers')
+                    .insert({
+                        name: customer.name,
+                        ledger_type: 'CUSTOMER',
+                        group_id: newGroup.id,
+                        company_id: companyId,
+                        opening_balance: 0,
+                        status: 'ACTIVE',
+                        created_by: userId
+                    });
+
+                if (ledgerError) throw ledgerError;
+                return;
+            }
+
+            // Create ledger with existing group
+            const { error: ledgerError } = await supabase
+                .from('ledgers')
+                .insert({
+                    name: customer.name,
+                    ledger_type: 'CUSTOMER',
+                    group_id: group.id,
+                    company_id: companyId,
+                    opening_balance: 0,
+                    status: 'ACTIVE',
+                    created_by: userId
+                });
+
+            if (ledgerError) throw ledgerError;
+        } catch (error) {
+            logger.error('Error creating customer ledger:', error);
             throw error;
         }
     }

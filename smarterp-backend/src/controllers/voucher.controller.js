@@ -15,14 +15,36 @@ class VoucherController {
                 });
             }
 
-            // Validate voucher type
-            const validTypes = await VoucherModel.getVoucherTypes();
-            if (!validTypes.includes(voucherData.voucher_type)) {
+                    // Validate voucher type
+        const validTypes = await VoucherModel.getVoucherTypes();
+        if (!validTypes.includes(voucherData.voucher_type)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid voucher type'
+            });
+        }
+
+        // ✅ Check if ledger exists before creating
+        if (voucherData.ledger_id) {
+            const { data: ledger, error: ledgerError } = await supabase
+                .from('ledgers')
+                .select('id, name')
+                .eq('id', voucherData.ledger_id)
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .single();
+
+            if (ledgerError || !ledger) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid voucher type'
+                    message: `Ledger not found. Please ensure the customer/supplier has a corresponding ledger.`,
+                    details: {
+                        ledger_id: voucherData.ledger_id,
+                        action: 'Create a customer/supplier ledger first'
+                    }
                 });
             }
+        }
 
             const voucher = await VoucherModel.create(voucherData, req.user.id, companyId);
 

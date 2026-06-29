@@ -15,10 +15,14 @@ export const voucherService = {
     return response.data.data;
   },
 
-  async create(companyId, data) {
-    const response = await api.post(`/vouchers?companyId=${companyId}`, data);
-    return response.data.data;
-  },
+async create(companyId, data) {
+        // Ensure ledger_id is valid
+        const voucherData = {
+            ...data,
+        };
+        const response = await api.post(`/vouchers?companyId=${companyId}`, voucherData);
+        return response.data.data;
+    },
 
   async update(companyId, id, data) {
     const response = await api.put(`/vouchers/${id}?companyId=${companyId}`, data);

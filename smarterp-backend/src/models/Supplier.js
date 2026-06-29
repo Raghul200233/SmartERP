@@ -33,12 +33,76 @@ class SupplierModel {
                 .select()
                 .single();
 
-            if (error) throw error;
+            if (supplierError) throw supplierError;
+
+            await this.createSupplierLedger(supplier, userId, companyId);
 
             logger.info(`Supplier created: ${data.name}`);
             return data;
         } catch (error) {
             logger.error('Error creating supplier:', error);
+            throw error;
+        }
+    }
+
+        async createSupplierLedger(supplier, userId, companyId) {
+        try {
+            // Find Sundry Creditors group
+            const { data: group, error: groupError } = await supabase
+                .from('account_groups')
+                .select('id')
+                .eq('name', 'Sundry Creditors')
+                .eq('company_id', companyId)
+                .single();
+
+            if (groupError) {
+                // Create group if it doesn't exist
+                const { data: newGroup, error: createGroupError } = await supabase
+                    .from('account_groups')
+                    .insert({
+                        name: 'Sundry Creditors',
+                        type: 'LIABILITY',
+                        company_id: companyId,
+                        created_by: userId
+                    })
+                    .select()
+                    .single();
+
+                if (createGroupError) throw createGroupError;
+
+                // Create ledger with new group
+                const { error: ledgerError } = await supabase
+                    .from('ledgers')
+                    .insert({
+                        name: supplier.name,
+                        ledger_type: 'SUPPLIER',
+                        group_id: newGroup.id,
+                        company_id: companyId,
+                        opening_balance: 0,
+                        status: 'ACTIVE',
+                        created_by: userId
+                    });
+
+                if (ledgerError) throw ledgerError;
+                return;
+            }
+
+            // Create ledger with existing group
+            const { error: ledgerError } = await supabase
+                .from('ledgers')
+                .insert({
+                    name: supplier.name,
+                    ledger_type: 'SUPPLIER',
+                    group_id: group.id,
+                    company_id: companyId,
+                    opening_balance: 0,
+                    status: 'ACTIVE',
+                    created_by: userId
+                });
+
+            if (ledgerError) throw ledgerError;
+        } catch (error) {
+            logger.error('Error creating supplier ledger:', error);
             throw error;
         }
     }
