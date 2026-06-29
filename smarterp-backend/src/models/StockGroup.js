@@ -40,52 +40,41 @@ class StockGroupModel {
         }
     }
 
-    async findAll(companyId) {
-        try {
-            const { data, error } = await supabase
-                .from('stock_groups')
-                .select(`
-                    *,
-                    parent:stock_groups!parent_id (
-                        id,
-                        name
-                    )
-                `)
-                .eq('company_id', companyId)
-                .is('deleted_at', null)
-                .order('name');
+async findAll(companyId) {
+    try {
+        // Remove the nested select that's causing the ambiguity
+        const { data, error } = await supabase
+            .from('stock_groups')
+            .select('*')
+            .eq('company_id', companyId)
+            .is('deleted_at', null)
+            .order('name');
 
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            logger.error('Error finding stock groups:', error);
-            throw error;
-        }
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        logger.error('Error finding stock groups:', error);
+        throw error;
     }
+}
 
-    async findById(id, companyId) {
-        try {
-            const { data, error } = await supabase
-                .from('stock_groups')
-                .select(`
-                    *,
-                    parent:stock_groups!parent_id (
-                        id,
-                        name
-                    )
-                `)
-                .eq('id', id)
-                .eq('company_id', companyId)
-                .is('deleted_at', null)
-                .single();
+async findById(id, companyId) {
+    try {
+        const { data, error } = await supabase
+            .from('stock_groups')
+            .select('*')
+            .eq('id', id)
+            .eq('company_id', companyId)
+            .is('deleted_at', null)
+            .single();
 
-            if (error) throw error;
-            return data;
-        } catch (error) {
-            logger.error('Error finding stock group:', error);
-            throw error;
-        }
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        logger.error('Error finding stock group:', error);
+        throw error;
     }
+}
 
 async update(id, companyId, groupData) {
     try {
