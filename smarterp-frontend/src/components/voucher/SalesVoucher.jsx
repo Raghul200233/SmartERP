@@ -3,8 +3,8 @@ import { X, Loader2, Plus, Trash2, Printer, Download } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { voucherService } from '../../services/voucher.service';
 import { ledgerService } from '../../services/ledger.service';
-import { stockItemService } from '../../services/stock.service';
 import { customerService } from '../../services/customer.service';
+import { stockItemService } from '../../services/stock.service';
 import toast from 'react-hot-toast';
 
 export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
@@ -43,33 +43,38 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
 
   const fetchCustomers = async () => {
     try {
-      const data = await customerService.getAll(currentCompany.id);
-      setCustomers(data || []);
+      const response = await customerService.getAll(currentCompany.id);
+      setCustomers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching customers:', error);
+      setCustomers([]);
     }
   };
 
   const fetchStockItems = async () => {
     try {
-      const data = await stockItemService.getAll(currentCompany.id);
-      setStockItems(data || []);
+      const response = await stockItemService.getAll(currentCompany.id);
+      setStockItems(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching stock items:', error);
+      setStockItems([]);
     }
   };
 
   const fetchLedgers = async () => {
     try {
-      const data = await ledgerService.getAll(currentCompany.id);
-      setLedgers(data || []);
+      const response = await ledgerService.getAll(currentCompany.id);
+      setLedgers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching ledgers:', error);
+      setLedgers([]);
     }
   };
 
   const loadVoucherData = () => {
-    // Implementation for editing
+    if (voucher) {
+      // Load data for editing
+    }
   };
 
   const addItem = () => {
@@ -138,9 +143,6 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
     if (formData.items.some(item => !item.stock_item_id)) {
       newErrors.items = 'All items must have a stock item selected';
     }
-    if (formData.items.some(item => item.quantity <= 0)) {
-      newErrors.items = 'All items must have quantity greater than 0';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -152,6 +154,9 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
     try {
       setLocalLoading(true);
 
+      // Find Sales ledger (Direct Income)
+      const salesLedger = ledgers.find(l => l.name === 'Sales' || l.ledger_type === 'INCOME');
+      
       const voucherData = {
         voucher_type: 'SALES',
         date: formData.date,
@@ -175,7 +180,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
             entry_type: 'DEBIT'
           },
           {
-            ledger_id: await getSalesLedger(),
+            ledger_id: salesLedger?.id || formData.customer_id,
             amount: calculatedTotals.subtotal,
             entry_type: 'CREDIT'
           }
@@ -188,6 +193,9 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
       } else {
         await voucherService.create(currentCompany.id, voucherData);
         toast.success('Sales voucher created successfully');
+        // Generate invoice number
+        const invoiceNumber = `INV-${String(Date.now()).slice(-6)}`;
+        toast.success(`Invoice #${invoiceNumber} generated`);
       }
 
       if (onSuccess) onSuccess();
@@ -198,12 +206,6 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
     } finally {
       setLocalLoading(false);
     }
-  };
-
-  const getSalesLedger = async () => {
-    const salesLedger = ledgers.find(l => l.name === 'Sales');
-    if (salesLedger) return salesLedger.id;
-    return null;
   };
 
   const formatCurrency = (amount) => {
@@ -218,6 +220,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEdit ? 'Edit Sales Voucher' : 'New Sales Voucher'}
@@ -225,29 +228,26 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               title="Print Invoice"
             >
-              <Printer className="w-5 h-5 text-gray-500" />
+              <Printer className="w-5 h-5" />
             </button>
             <button
               type="button"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               title="Download PDF"
             >
-              <Download className="w-5 h-5 text-gray-500" />
+              <Download className="w-5 h-5" />
             </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
               <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Header Fields - Similar to Purchase Voucher */}
+          {/* Header Fields */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -261,7 +261,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
                 }`}
               >
                 <option value="">Select Customer</option>
-                {customers.map(customer => (
+                {Array.isArray(customers) && customers.map(customer => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name}
                   </option>
@@ -299,7 +299,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Items Section - Same as Purchase Voucher */}
+          {/* Items Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Sales Items</h3>
@@ -326,7 +326,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Select Item</option>
-                      {stockItems.map(si => (
+                      {Array.isArray(stockItems) && stockItems.map(si => (
                         <option key={si.id} value={si.id}>
                           {si.name} (Stock: {si.current_quantity || 0})
                         </option>

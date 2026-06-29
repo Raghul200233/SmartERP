@@ -22,7 +22,6 @@ const navItems = [
   { path: '/ledgers', icon: FileText, label: 'Ledgers' },
   { path: '/stock', icon: Package, label: 'Stock' },
   { path: '/vouchers', icon: Receipt, label: 'Vouchers' },
-  { path: '/billing', icon: FileText, label: 'Billing' },
   { path: '/customers', icon: Users, label: 'Customers' },
   { path: '/suppliers', icon: Truck, label: 'Suppliers' },
   { path: '/reports', icon: BarChart3, label: 'Reports' },

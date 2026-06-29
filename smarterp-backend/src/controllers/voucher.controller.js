@@ -1,6 +1,4 @@
 const VoucherModel = require('../models/Voucher');
-const LedgerModel = require('../models/Ledger');
-const StockItemModel = require('../models/StockItem');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
 
@@ -26,11 +24,6 @@ class VoucherController {
                 });
             }
 
-            // Process stock transactions for purchase/sales vouchers
-            if (voucherData.voucher_type === 'PURCHASE' || voucherData.voucher_type === 'SALES') {
-                await this.processStockTransactions(voucherData, companyId, req.user.id);
-            }
-
             const voucher = await VoucherModel.create(voucherData, req.user.id, companyId);
 
             await AuditLog.create({
@@ -43,7 +36,7 @@ class VoucherController {
 
             res.status(201).json({
                 success: true,
-                message: 'Voucher created successfully',
+                message: `${voucherData.voucher_type} voucher created successfully`,
                 data: voucher
             });
         } catch (error) {
@@ -52,32 +45,6 @@ class VoucherController {
                 success: false,
                 message: error.message || 'Failed to create voucher'
             });
-        }
-    }
-
-    async processStockTransactions(voucherData, companyId, userId) {
-        try {
-            if (!voucherData.items || voucherData.items.length === 0) {
-                return;
-            }
-
-            for (const item of voucherData.items) {
-                const quantity = voucherData.voucher_type === 'PURCHASE' 
-                    ? item.quantity 
-                    : -item.quantity;
-
-                await StockItemModel.updateQuantity(
-                    item.stock_item_id,
-                    companyId,
-                    Math.abs(quantity),
-                    voucherData.voucher_type === 'PURCHASE' ? 'STOCK_IN' : 'STOCK_OUT',
-                    null,
-                    voucherData.voucher_type
-                );
-            }
-        } catch (error) {
-            logger.error('Error processing stock transactions:', error);
-            throw new Error('Failed to process stock transactions: ' + error.message);
         }
     }
 
@@ -249,7 +216,7 @@ class VoucherController {
                 });
             }
 
-            const stats = await VoucherModel.getVoucherStats(companyId, startDate, endDate);
+            const stats = await VoucherModel.getStats(companyId, startDate, endDate);
 
             res.json({
                 success: true,

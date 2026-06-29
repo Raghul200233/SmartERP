@@ -1,13 +1,23 @@
 import api from './api';
 
 export const customerService = {
-  async getAll(companyId, filters = {}) {
-    const params = new URLSearchParams({
-      companyId,
-      ...filters
-    });
-    const response = await api.get(`/customers?${params}`);
-    return response.data;
+   async getAll(companyId, filters = {}) {
+    try {
+      const params = new URLSearchParams({
+        companyId,
+        ...filters
+      });
+      const response = await api.get(`/customers?${params}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+      return {
+        success: false,
+        data: [],
+        count: 0,
+        message: error.message || 'Failed to fetch customers'
+      };
+    }
   },
 
   async getById(companyId, id) {

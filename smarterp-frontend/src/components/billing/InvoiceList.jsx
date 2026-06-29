@@ -52,11 +52,13 @@ const fetchInvoices = async () => {
         if (endDate) filters.endDate = endDate;
 
         const response = await invoiceService.getAll(currentCompany.id, filters);
-        if (response.success === false) {
-            toast.error(response.message || 'Failed to load invoices');
-            setInvoices([]);
+        
+        // Check if response has data
+        if (response && response.data) {
+            setInvoices(response.data);
         } else {
-            setInvoices(response.data || []);
+            setInvoices([]);
+            toast.error(response?.message || 'Failed to load invoices');
         }
     } catch (error) {
         console.error('Error fetching invoices:', error);

@@ -90,13 +90,15 @@ class InvoiceModel {
         return `INV-${String(newNumber).padStart(6, '0')}`;
     }
 
-async findAll(companyId, filters = {}) {
+    async findAll(companyId, filters = {}) {
         try {
+            logger.info(`Fetching invoices for company: ${companyId}`, { filters });
+
             let query = supabase
                 .from('invoices')
                 .select(`
                     *,
-                    customers (
+                    customers:customer_id (
                         id,
                         name,
                         mobile,
@@ -135,6 +137,7 @@ async findAll(companyId, filters = {}) {
                 throw error;
             }
             
+            logger.info(`Found ${data?.length || 0} invoices`);
             return data || [];
         } catch (error) {
             logger.error('Error finding invoices:', error);
@@ -148,7 +151,7 @@ async findAll(companyId, filters = {}) {
                 .from('invoices')
                 .select(`
                     *,
-                    customers!inner (
+                    customers:customer_id (
                         id,
                         name,
                         mobile,
@@ -158,7 +161,7 @@ async findAll(companyId, filters = {}) {
                     ),
                     invoice_items (
                         *,
-                        stock_items!inner (
+                        stock_items:stock_item_id (
                             id,
                             name,
                             sku
@@ -180,7 +183,7 @@ async findAll(companyId, filters = {}) {
             if (error) throw error;
             return data;
         } catch (error) {
-            logger.error('Error finding invoice:', error);
+            logger.error('Error finding invoice by ID:', error);
             throw error;
         }
     }

@@ -40,7 +40,7 @@ class InvoiceController {
         }
     }
 
-async getAll(req, res, next) {
+    async getAll(req, res, next) {
         try {
             const { companyId } = req.query;
             const filters = {
@@ -58,6 +58,8 @@ async getAll(req, res, next) {
                 });
             }
 
+            logger.info('Fetching invoices with filters:', { companyId, filters });
+
             const invoices = await InvoiceModel.findAll(companyId, filters);
 
             res.json({
@@ -70,7 +72,7 @@ async getAll(req, res, next) {
             res.status(500).json({
                 success: false,
                 message: error.message || 'Failed to fetch invoices',
-                error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
             });
         }
     }

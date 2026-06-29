@@ -51,36 +51,37 @@ class CustomerController {
     }
 
     // Get all customers with filters
-    async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
-            const filters = {
-                search: req.query.search,
-                has_outstanding: req.query.hasOutstanding
-            };
+async getAll(req, res, next) {
+    try {
+        const { companyId } = req.query;
+        const filters = {
+            search: req.query.search,
+            has_outstanding: req.query.hasOutstanding
+        };
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const customers = await CustomerModel.findAll(companyId, filters);
-
-            res.json({
-                success: true,
-                data: customers,
-                count: customers.length
-            });
-        } catch (error) {
-            logger.error('Get customers error:', error);
-            res.status(500).json({
+        if (!companyId) {
+            return res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to fetch customers'
+                message: 'Company ID is required'
             });
         }
+
+        const customers = await CustomerModel.findAll(companyId, filters);
+
+        res.json({
+            success: true,
+            data: customers || [], // Ensure we always return an array
+            count: customers?.length || 0
+        });
+    } catch (error) {
+        logger.error('Get customers error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch customers',
+            data: [] // Return empty array on error
+        });
     }
+}
 
     // Get customer by ID
     async getById(req, res, next) {

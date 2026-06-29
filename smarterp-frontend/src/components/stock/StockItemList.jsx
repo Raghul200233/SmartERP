@@ -32,11 +32,13 @@ export const StockItemList = ({ onEdit, onView, onDelete, onAdd }) => {
       if (searchTerm) filters.search = searchTerm;
       if (filterGroup) filters.groupId = filterGroup;
 
-      const data = await stockItemService.getAll(currentCompany.id, filters);
-      setStockItems(data);
+      const response = await stockItemService.getAll(currentCompany.id, filters);
+      // Ensure we set an array
+      setStockItems(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching stock items:', error);
       toast.error('Failed to load stock items');
+      setStockItems([]);
     } finally {
       setLoading(false);
     }
@@ -44,37 +46,39 @@ export const StockItemList = ({ onEdit, onView, onDelete, onAdd }) => {
 
   const fetchStockGroups = async () => {
     try {
-      const data = await stockGroupService.getAll(currentCompany.id);
-      setStockGroups(data);
+      const response = await stockGroupService.getAll(currentCompany.id);
+      setStockGroups(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching stock groups:', error);
+      setStockGroups([]);
     }
   };
 
   const fetchUnits = async () => {
     try {
-      const data = await unitService.getAll(currentCompany.id);
-      setUnits(data);
+      const response = await unitService.getAll(currentCompany.id);
+      setUnits(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching units:', error);
+      setUnits([]);
     }
   };
 
-  const handleDelete = async (item) => {
-    if (!window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
-      return;
-    }
+const handleDelete = async (item) => {
+  if (!window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
+    return;
+  }
 
-    try {
-      await stockItemService.delete(currentCompany.id, item.id);
-      toast.success('Stock item deleted successfully');
-      fetchStockItems();
-      if (onDelete) onDelete(item);
-    } catch (error) {
-      console.error('Error deleting stock item:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete stock item');
-    }
-  };
+  try {
+    await stockItemService.delete(currentCompany.id, item.id);
+    toast.success('Stock item deleted successfully');
+    fetchStockItems();
+    if (onDelete) onDelete(item);
+  } catch (error) {
+    console.error('Error deleting stock item:', error);
+    toast.error(error.response?.data?.message || 'Failed to delete stock item');
+  }
+};
 
   const handleRefresh = () => {
     fetchStockItems();
@@ -91,7 +95,7 @@ export const StockItemList = ({ onEdit, onView, onDelete, onAdd }) => {
     return { label: 'Low Stock', color: 'text-yellow-500', icon: AlertTriangle };
   };
 
-  const filteredItems = stockItems || [];
+  const filteredItems = Array.isArray(stockItems) ? stockItems : [];
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -248,7 +252,7 @@ export const StockItemList = ({ onEdit, onView, onDelete, onAdd }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredItems.map((item) => {
+              {Array.isArray(filteredItems) && filteredItems.map((item) => {
                 const status = getStockStatus(item);
                 const StatusIcon = status.icon;
                 const unit = units.find(u => u.id === item.unit_id);
@@ -335,4 +339,15 @@ export const StockItemList = ({ onEdit, onView, onDelete, onAdd }) => {
       </div>
     </div>
   );
+};
+
+// Helper function at the bottom
+const getStockStatus = (item) => {
+  if (!item.reorder_level || item.current_quantity > item.reorder_level) {
+    return { label: 'In Stock', color: 'text-green-500', icon: TrendingUp };
+  }
+  if (item.current_quantity <= 0) {
+    return { label: 'Out of Stock', color: 'text-red-500', icon: TrendingDown };
+  }
+  return { label: 'Low Stock', color: 'text-yellow-500', icon: AlertTriangle };
 };

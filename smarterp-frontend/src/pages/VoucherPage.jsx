@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { VoucherList } from '../components/voucher/VoucherList';
 import { PurchaseVoucher } from '../components/voucher/PurchaseVoucher';
 import { SalesVoucher } from '../components/voucher/SalesVoucher';
-import { VoucherForm } from '../components/voucher/VoucherForm';
 import { VoucherDetail } from '../components/voucher/VoucherDetail';
 
 const VoucherPage = () => {
@@ -58,15 +57,8 @@ const VoucherPage = () => {
           onSuccess={handleFormSuccess}
         />
       );
-    } else {
-      return (
-        <VoucherForm
-          voucher={editMode ? selectedVoucher : null}
-          onClose={handleFormClose}
-          onSuccess={handleFormSuccess}
-        />
-      );
     }
+    return null;
   };
 
   return (

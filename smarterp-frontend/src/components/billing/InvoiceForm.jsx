@@ -40,19 +40,21 @@ export const InvoiceForm = ({ invoice, onClose, onSuccess }) => {
 
   const fetchCustomers = async () => {
     try {
-      const data = await customerService.getAll(currentCompany.id);
-      setCustomers(data || []);
+      const response = await customerService.getAll(currentCompany.id);
+      setCustomers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching customers:', error);
+      setCustomers([]);
     }
   };
 
   const fetchStockItems = async () => {
     try {
-      const data = await stockItemService.getAll(currentCompany.id);
-      setStockItems(data || []);
+      const response = await stockItemService.getAll(currentCompany.id);
+      setStockItems(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching stock items:', error);
+      setStockItems([]);
     }
   };
 
@@ -219,6 +221,7 @@ export const InvoiceForm = ({ invoice, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEdit ? 'Edit Invoice' : 'New Invoice'}
@@ -243,7 +246,7 @@ export const InvoiceForm = ({ invoice, onClose, onSuccess }) => {
                 }`}
               >
                 <option value="">Select Customer</option>
-                {customers.map(customer => (
+                {Array.isArray(customers) && customers.map((customer) => (
                   <option key={customer.id} value={customer.id}>
                     {customer.name}
                   </option>
@@ -310,7 +313,7 @@ export const InvoiceForm = ({ invoice, onClose, onSuccess }) => {
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Select Item</option>
-                      {stockItems.map(si => (
+                      {Array.isArray(stockItems) && stockItems.map((si) => (
                         <option key={si.id} value={si.id}>
                           {si.name} (Stock: {si.current_quantity || 0})
                         </option>

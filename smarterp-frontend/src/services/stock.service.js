@@ -2,8 +2,18 @@ import api from './api';
 
 export const stockGroupService = {
   async getAll(companyId) {
-    const response = await api.get(`/stock-groups?companyId=${companyId}`);
-    return response.data.data;
+    try {
+      const response = await api.get(`/stock-groups?companyId=${companyId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching stock groups:', error);
+      return {
+        success: false,
+        data: [],
+        count: 0,
+        message: error.message || 'Failed to fetch stock groups'
+      };
+    }
   },
 
   async getById(companyId, id) {
@@ -37,8 +47,18 @@ export const stockGroupService = {
 
 export const unitService = {
   async getAll(companyId) {
-    const response = await api.get(`/units?companyId=${companyId}`);
-    return response.data.data;
+    try {
+      const response = await api.get(`/units?companyId=${companyId}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching units:', error);
+      return {
+        success: false,
+        data: [],
+        count: 0,
+        message: error.message || 'Failed to fetch units'
+      };
+    }
   },
 
   async getById(companyId, id) {
@@ -63,13 +83,23 @@ export const unitService = {
 };
 
 export const stockItemService = {
-  async getAll(companyId, filters = {}) {
-    const params = new URLSearchParams({
-      companyId,
-      ...filters
-    });
-    const response = await api.get(`/stock-items?${params}`);
-    return response.data.data;
+async getAll(companyId, filters = {}) {
+    try {
+      const params = new URLSearchParams({
+        companyId,
+        ...filters
+      });
+      const response = await api.get(`/stock-items?${params}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching stock items:', error);
+      return {
+        success: false,
+        data: [],
+        count: 0,
+        message: error.message || 'Failed to fetch stock items'
+      };
+    }
   },
 
   async getById(companyId, id) {

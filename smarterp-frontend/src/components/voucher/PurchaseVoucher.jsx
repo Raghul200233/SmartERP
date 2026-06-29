@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Plus, Trash2, Search, Calculator } from 'lucide-react';
+import { X, Loader2, Plus, Trash2, Printer, Download } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { voucherService } from '../../services/voucher.service';
 import { ledgerService } from '../../services/ledger.service';
-import { stockItemService } from '../../services/stock.service';
 import { supplierService } from '../../services/supplier.service';
+import { stockItemService } from '../../services/stock.service';
 import toast from 'react-hot-toast';
 
 export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
@@ -22,8 +22,6 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [stockItems, setStockItems] = useState([]);
   const [ledgers, setLedgers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filteredItems, setFilteredItems] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLocalLoading] = useState(false);
 
@@ -41,53 +39,43 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     fetchStockItems();
     fetchLedgers();
     if (voucher) {
-      // Load voucher data for edit
       loadVoucherData();
     }
   }, [voucher]);
 
   const fetchSuppliers = async () => {
     try {
-      const data = await supplierService.getAll(currentCompany.id);
-      setSuppliers(data || []);
+      const response = await supplierService.getAll(currentCompany.id);
+      setSuppliers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching suppliers:', error);
+      setSuppliers([]);
     }
   };
 
   const fetchStockItems = async () => {
     try {
-      const data = await stockItemService.getAll(currentCompany.id);
-      setStockItems(data || []);
-      setFilteredItems(data || []);
+      const response = await stockItemService.getAll(currentCompany.id);
+      setStockItems(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching stock items:', error);
+      setStockItems([]);
     }
   };
 
   const fetchLedgers = async () => {
     try {
-      const data = await ledgerService.getAll(currentCompany.id);
-      setLedgers(data || []);
+      const response = await ledgerService.getAll(currentCompany.id);
+      setLedgers(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching ledgers:', error);
+      setLedgers([]);
     }
   };
 
   const loadVoucherData = () => {
-    // Implementation for editing
-  };
-
-  const handleItemSearch = (search) => {
-    setSearchTerm(search);
-    if (search.length > 0) {
-      const filtered = stockItems.filter(item =>
-        item.name.toLowerCase().includes(search.toLowerCase()) ||
-        item.sku?.toLowerCase().includes(search.toLowerCase())
-      );
-      setFilteredItems(filtered);
-    } else {
-      setFilteredItems(stockItems);
+    if (voucher) {
+      // Load data for editing
     }
   };
 
@@ -111,13 +99,11 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     const newItems = [...formData.items];
     newItems[index][field] = value;
 
-    // Auto-calculate amount when quantity or rate changes
     if (field === 'quantity' || field === 'rate') {
       const quantity = parseFloat(newItems[index].quantity) || 0;
       const rate = parseFloat(newItems[index].rate) || 0;
       newItems[index].amount = quantity * rate;
       
-      // Auto-calculate GST
       const gstPercent = parseFloat(newItems[index].gst) || 0;
       newItems[index].gstAmount = (newItems[index].amount * gstPercent) / 100;
     }
@@ -161,9 +147,6 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     if (formData.items.some(item => !item.stock_item_id)) {
       newErrors.items = 'All items must have a stock item selected';
     }
-    if (formData.items.some(item => item.quantity <= 0)) {
-      newErrors.items = 'All items must have quantity greater than 0';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -175,6 +158,9 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     try {
       setLocalLoading(true);
 
+      // Find Purchase ledger (Direct Expenses)
+      const purchaseLedger = ledgers.find(l => l.name === 'Purchases' || l.ledger_type === 'EXPENSE');
+      
       const voucherData = {
         voucher_type: 'PURCHASE',
         date: formData.date,
@@ -193,14 +179,14 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
         })),
         entries: [
           {
+            ledger_id: purchaseLedger?.id || formData.supplier_id,
+            amount: calculatedTotals.subtotal,
+            entry_type: 'DEBIT'
+          },
+          {
             ledger_id: formData.supplier_id,
             amount: calculatedTotals.grandTotal,
             entry_type: 'CREDIT'
-          },
-          {
-            ledger_id: await getPurchaseLedger(),
-            amount: calculatedTotals.subtotal,
-            entry_type: 'DEBIT'
           }
         ]
       };
@@ -223,15 +209,6 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     }
   };
 
-  const getPurchaseLedger = async () => {
-    // Find or create Purchase ledger
-    const purchaseLedger = ledgers.find(l => l.name === 'Purchases');
-    if (purchaseLedger) return purchaseLedger.id;
-    
-    // Create if not exists (simplified)
-    return null;
-  };
-
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -244,6 +221,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEdit ? 'Edit Purchase Voucher' : 'New Purchase Voucher'}
@@ -268,7 +246,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
                 }`}
               >
                 <option value="">Select Supplier</option>
-                {suppliers.map(supplier => (
+                {Array.isArray(suppliers) && suppliers.map(supplier => (
                   <option key={supplier.id} value={supplier.id}>
                     {supplier.name}
                   </option>
@@ -309,16 +287,14 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Purchase Items</h3>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={addItem}
+                className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Item
+              </button>
             </div>
 
             {errors.items && <p className="text-sm text-red-500 mb-2">{errors.items}</p>}
@@ -334,7 +310,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
                       className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Select Item</option>
-                      {stockItems.map(si => (
+                      {Array.isArray(stockItems) && stockItems.map(si => (
                         <option key={si.id} value={si.id}>
                           {si.name} ({si.sku})
                         </option>
@@ -457,7 +433,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
 
             {/* Summary */}
             <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-5 gap-3">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400">Subtotal</p>
                   <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(calculatedTotals.subtotal)}</p>

@@ -39,36 +39,37 @@ class StockItemController {
         }
     }
 
-    async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
-            const filters = {
-                stock_group_id: req.query.groupId,
-                search: req.query.search
-            };
+async getAll(req, res, next) {
+    try {
+        const { companyId } = req.query;
+        const filters = {
+            stock_group_id: req.query.groupId,
+            search: req.query.search
+        };
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const items = await StockItemModel.findAll(companyId, filters);
-
-            res.json({
-                success: true,
-                data: items,
-                count: items.length
-            });
-        } catch (error) {
-            logger.error('Get stock items error:', error);
-            res.status(500).json({
+        if (!companyId) {
+            return res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to fetch stock items'
+                message: 'Company ID is required'
             });
         }
+
+        const items = await StockItemModel.findAll(companyId, filters);
+
+        res.json({
+            success: true,
+            data: items || [],
+            count: items?.length || 0
+        });
+    } catch (error) {
+        logger.error('Get stock items error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch stock items',
+            data: [] // Return empty array on error
+        });
     }
+}
 
     async getById(req, res, next) {
         try {
@@ -261,6 +262,5 @@ class StockItemController {
         }
     }
 }
-
 
 module.exports = new StockItemController();

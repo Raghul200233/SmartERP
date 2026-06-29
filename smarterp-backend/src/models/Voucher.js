@@ -29,7 +29,7 @@ class VoucherModel {
 
             if (error) throw error;
 
-            // Create voucher entries
+            // Create voucher entries (Double entry)
             if (voucherData.entries && voucherData.entries.length > 0) {
                 for (const entry of voucherData.entries) {
                     await this.createEntry({
@@ -39,6 +39,11 @@ class VoucherModel {
                         entry_type: entry.entry_type
                     });
                 }
+            }
+
+            // Handle inventory for Purchase/Sales
+            if (voucherData.voucher_type === 'PURCHASE' || voucherData.voucher_type === 'SALES') {
+                await this.processInventory(voucherData, data.id, userId, companyId);
             }
 
             logger.info(`Voucher created: ${voucherNumber} (${voucherData.voucher_type})`);
@@ -60,19 +65,97 @@ class VoucherModel {
         }
     }
 
+async processInventory(voucherData, voucherId, userId, companyId) {
+    try {
+        if (!voucherData.items || voucherData.items.length === 0) {
+            return;
+        }
+
+        const isPurchase = voucherData.voucher_type === 'PURCHASE';
+
+        for (const item of voucherData.items) {
+            const quantity = parseFloat(item.quantity) || 0;
+            const rate = parseFloat(item.rate) || 0;
+            
+            // Check if stock item exists
+            const { data: stockItem, error: stockError } = await supabase
+                .from('stock_items')
+                .select('id, current_quantity, purchase_price')
+                .eq('id', item.stock_item_id)
+                .eq('company_id', companyId)
+                .single();
+
+            if (stockError) {
+                console.error('Stock item error:', stockError);
+                throw new Error(`Stock item not found: ${item.stock_item_id}`);
+            }
+
+            const currentQty = stockItem.current_quantity || 0;
+            const newQuantity = isPurchase 
+                ? currentQty + quantity
+                : currentQty - quantity;
+
+            if (!isPurchase && newQuantity < 0) {
+                throw new Error(`Insufficient stock for item. Available: ${currentQty}, Requested: ${quantity}`);
+            }
+
+            // Update stock quantity
+            const { error: updateError } = await supabase
+                .from('stock_items')
+                .update({ current_quantity: newQuantity })
+                .eq('id', item.stock_item_id)
+                .eq('company_id', companyId);
+
+            if (updateError) {
+                console.error('Update stock error:', updateError);
+                throw new Error('Failed to update stock quantity');
+            }
+
+            // Create inventory transaction with voucher_id
+            const transactionData = {
+                stock_item_id: item.stock_item_id,
+                transaction_type: isPurchase ? 'PURCHASE' : 'SALES',
+                quantity: quantity,
+                rate: rate,
+                value: quantity * rate,
+                voucher_id: voucherId,  // Link to voucher
+                reference_type: voucherData.voucher_type,
+                reference_id: voucherId,
+                company_id: companyId,
+                created_by: userId
+            };
+
+            const { error: txError } = await supabase
+                .from('inventory_transactions')
+                .insert(transactionData);
+
+            if (txError) {
+                console.error('Transaction error:', txError);
+                // Rollback stock update
+                await supabase
+                    .from('stock_items')
+                    .update({ current_quantity: currentQty })
+                    .eq('id', item.stock_item_id)
+                    .eq('company_id', companyId);
+                throw new Error('Failed to create inventory transaction');
+            }
+        }
+    } catch (error) {
+        console.error('Error processing inventory:', error);
+        throw error;
+    }
+}
+
     async generateVoucherNumber(voucherType, companyId) {
         const prefix = {
             'PURCHASE': 'PUR',
             'SALES': 'SAL',
-            'PAYMENT': 'PAY',
-            'RECEIPT': 'REC',
             'CONTRA': 'CON',
             'JOURNAL': 'JRN',
             'CREDIT_NOTE': 'CRN',
             'DEBIT_NOTE': 'DRN'
         }[voucherType] || 'VCH';
 
-        // Get last voucher number
         const { data, error } = await supabase
             .from('vouchers')
             .select('voucher_number')
@@ -175,6 +258,14 @@ class VoucherModel {
                             name,
                             ledger_type
                         )
+                    ),
+                    inventory_transactions (
+                        *,
+                        stock_items!inner (
+                            id,
+                            name,
+                            sku
+                        )
                     )
                 `)
                 .eq('id', id)
@@ -211,13 +302,11 @@ class VoucherModel {
 
             // Update entries if provided
             if (voucherData.entries) {
-                // Delete existing entries
                 await supabase
                     .from('voucher_entries')
                     .delete()
                     .eq('voucher_id', id);
 
-                // Create new entries
                 for (const entry of voucherData.entries) {
                     await this.createEntry({
                         voucher_id: id,
@@ -258,19 +347,10 @@ class VoucherModel {
     }
 
     async getVoucherTypes() {
-        return [
-            'PURCHASE',
-            'SALES',
-            'PAYMENT',
-            'RECEIPT',
-            'CONTRA',
-            'JOURNAL',
-            'CREDIT_NOTE',
-            'DEBIT_NOTE'
-        ];
+        return ['PURCHASE', 'SALES', 'CONTRA', 'JOURNAL', 'CREDIT_NOTE', 'DEBIT_NOTE'];
     }
 
-    async getVoucherStats(companyId, startDate, endDate) {
+    async getStats(companyId, startDate, endDate) {
         try {
             const { data, error } = await supabase
                 .from('vouchers')
