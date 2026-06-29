@@ -11,20 +11,8 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import StockPage from './pages/StockPage';
 import VoucherPage from './pages/VoucherPage';
 import BillingPage from './pages/BillingPage';
-
-const CustomerPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
-    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-  </div>
-);
-
-const SupplierPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Suppliers</h1>
-    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-  </div>
-);
+import CustomerPage from './pages/CustomerPage';
+import SupplierPage from './pages/SupplierPage';
 
 const ReportsPage = () => (
   <div className="p-6">

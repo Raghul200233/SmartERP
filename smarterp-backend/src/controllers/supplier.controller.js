@@ -1,13 +1,13 @@
-const CustomerModel = require('../models/Customer');
+const SupplierModel = require('../models/Supplier');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
 
-class CustomerController {
-    // Create a new customer
+class SupplierController {
+    // Create a new supplier
     async create(req, res, next) {
         try {
             const { companyId } = req.query;
-            const customerData = req.body;
+            const supplierData = req.body;
 
             if (!companyId) {
                 return res.status(400).json({
@@ -17,46 +17,45 @@ class CustomerController {
             }
 
             // Validate required fields
-            if (!customerData.name || !customerData.name.trim()) {
+            if (!supplierData.name || !supplierData.name.trim()) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Customer name is required'
+                    message: 'Supplier name is required'
                 });
             }
 
-            const customer = await CustomerModel.create(customerData, req.user.id, companyId);
+            const supplier = await SupplierModel.create(supplierData, req.user.id, companyId);
 
             await AuditLog.create({
                 user_id: req.user.id,
                 company_id: companyId,
-                action: 'CUSTOMER_CREATED',
-                resource_type: 'customers',
-                resource_id: customer.id,
+                action: 'SUPPLIER_CREATED',
+                resource_type: 'suppliers',
+                resource_id: supplier.id,
                 ip_address: req.ip || req.connection.remoteAddress,
                 user_agent: req.headers['user-agent']
             });
 
             res.status(201).json({
                 success: true,
-                message: 'Customer created successfully',
-                data: customer
+                message: 'Supplier created successfully',
+                data: supplier
             });
         } catch (error) {
-            logger.error('Create customer error:', error);
+            logger.error('Create supplier error:', error);
             res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to create customer'
+                message: error.message || 'Failed to create supplier'
             });
         }
     }
 
-    // Get all customers with filters
+    // Get all suppliers with filters
     async getAll(req, res, next) {
         try {
             const { companyId } = req.query;
             const filters = {
-                search: req.query.search,
-                has_outstanding: req.query.hasOutstanding
+                search: req.query.search
             };
 
             if (!companyId) {
@@ -66,23 +65,23 @@ class CustomerController {
                 });
             }
 
-            const customers = await CustomerModel.findAll(companyId, filters);
+            const suppliers = await SupplierModel.findAll(companyId, filters);
 
             res.json({
                 success: true,
-                data: customers,
-                count: customers.length
+                data: suppliers,
+                count: suppliers.length
             });
         } catch (error) {
-            logger.error('Get customers error:', error);
+            logger.error('Get suppliers error:', error);
             res.status(500).json({
                 success: false,
-                message: error.message || 'Failed to fetch customers'
+                message: error.message || 'Failed to fetch suppliers'
             });
         }
     }
 
-    // Get customer by ID
+    // Get supplier by ID
     async getById(req, res, next) {
         try {
             const { id } = req.params;
@@ -95,34 +94,34 @@ class CustomerController {
                 });
             }
 
-            const customer = await CustomerModel.findById(id, companyId);
+            const supplier = await SupplierModel.findById(id, companyId);
 
-            if (!customer) {
+            if (!supplier) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Customer not found'
+                    message: 'Supplier not found'
                 });
             }
 
             res.json({
                 success: true,
-                data: customer
+                data: supplier
             });
         } catch (error) {
-            logger.error('Get customer error:', error);
+            logger.error('Get supplier error:', error);
             res.status(500).json({
                 success: false,
-                message: error.message || 'Failed to fetch customer'
+                message: error.message || 'Failed to fetch supplier'
             });
         }
     }
 
-    // Update customer
+    // Update supplier
     async update(req, res, next) {
         try {
             const { id } = req.params;
             const { companyId } = req.query;
-            const customerData = req.body;
+            const supplierData = req.body;
 
             if (!companyId) {
                 return res.status(400).json({
@@ -132,41 +131,41 @@ class CustomerController {
             }
 
             // Validate required fields
-            if (customerData.name && !customerData.name.trim()) {
+            if (supplierData.name && !supplierData.name.trim()) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Customer name cannot be empty'
+                    message: 'Supplier name cannot be empty'
                 });
             }
 
-            const customer = await CustomerModel.update(id, companyId, customerData);
+            const supplier = await SupplierModel.update(id, companyId, supplierData);
 
             await AuditLog.create({
                 user_id: req.user.id,
                 company_id: companyId,
-                action: 'CUSTOMER_UPDATED',
-                resource_type: 'customers',
-                resource_id: customer.id,
-                changes: customerData,
+                action: 'SUPPLIER_UPDATED',
+                resource_type: 'suppliers',
+                resource_id: supplier.id,
+                changes: supplierData,
                 ip_address: req.ip || req.connection.remoteAddress,
                 user_agent: req.headers['user-agent']
             });
 
             res.json({
                 success: true,
-                message: 'Customer updated successfully',
-                data: customer
+                message: 'Supplier updated successfully',
+                data: supplier
             });
         } catch (error) {
-            logger.error('Update customer error:', error);
+            logger.error('Update supplier error:', error);
             res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to update customer'
+                message: error.message || 'Failed to update supplier'
             });
         }
     }
 
-    // Delete customer (soft delete)
+    // Delete supplier (soft delete)
     async delete(req, res, next) {
         try {
             const { id } = req.params;
@@ -179,13 +178,13 @@ class CustomerController {
                 });
             }
 
-            await CustomerModel.softDelete(id, companyId);
+            await SupplierModel.softDelete(id, companyId);
 
             await AuditLog.create({
                 user_id: req.user.id,
                 company_id: companyId,
-                action: 'CUSTOMER_DELETED',
-                resource_type: 'customers',
+                action: 'SUPPLIER_DELETED',
+                resource_type: 'suppliers',
                 resource_id: id,
                 ip_address: req.ip || req.connection.remoteAddress,
                 user_agent: req.headers['user-agent']
@@ -193,64 +192,19 @@ class CustomerController {
 
             res.json({
                 success: true,
-                message: 'Customer deleted successfully'
+                message: 'Supplier deleted successfully'
             });
         } catch (error) {
-            logger.error('Delete customer error:', error);
+            logger.error('Delete supplier error:', error);
             res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to delete customer'
+                message: error.message || 'Failed to delete supplier'
             });
         }
     }
 
-    // Get customer ledger
-    async getLedger(req, res, next) {
-        try {
-            const { id } = req.params;
-            const { companyId, startDate, endDate } = req.query;
-
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const customer = await CustomerModel.findById(id, companyId);
-            if (!customer) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Customer not found'
-                });
-            }
-
-            const ledger = await CustomerModel.getLedger(id, companyId, startDate, endDate);
-
-            res.json({
-                success: true,
-                data: {
-                    customer: {
-                        id: customer.id,
-                        name: customer.name,
-                        mobile: customer.mobile,
-                        email: customer.email,
-                        outstanding_balance: customer.outstanding_balance
-                    },
-                    transactions: ledger
-                }
-            });
-        } catch (error) {
-            logger.error('Get customer ledger error:', error);
-            res.status(500).json({
-                success: false,
-                message: error.message || 'Failed to fetch customer ledger'
-            });
-        }
-    }
-
-    // Get customer statement
-    async getStatement(req, res, next) {
+    // Get purchase history for a supplier
+    async getPurchaseHistory(req, res, next) {
         try {
             const { id } = req.params;
             const { companyId } = req.query;
@@ -262,57 +216,110 @@ class CustomerController {
                 });
             }
 
-            const customer = await CustomerModel.findById(id, companyId);
-            if (!customer) {
+            const supplier = await SupplierModel.findById(id, companyId);
+            if (!supplier) {
                 return res.status(404).json({
                     success: false,
-                    message: 'Customer not found'
+                    message: 'Supplier not found'
                 });
             }
 
-            // Get all transactions for this customer
-            const ledger = await CustomerModel.getLedger(id, companyId);
+            const purchases = await SupplierModel.getPurchaseHistory(id, companyId);
 
-            // Calculate summary
-            let totalDebit = 0;
-            let totalCredit = 0;
-            ledger.forEach(entry => {
-                totalDebit += entry.debit || 0;
-                totalCredit += entry.credit || 0;
-            });
-
-            const statement = {
-                customer: {
-                    id: customer.id,
-                    name: customer.name,
-                    mobile: customer.mobile,
-                    email: customer.email,
-                    address: customer.address,
-                    gst_number: customer.gst_number
-                },
-                summary: {
-                    total_debit: totalDebit,
-                    total_credit: totalCredit,
-                    balance: totalDebit - totalCredit,
-                    outstanding: customer.outstanding_balance
-                },
-                transactions: ledger
-            };
+            // Calculate total
+            const totalAmount = purchases.reduce((sum, p) => sum + (p.amount || 0), 0);
 
             res.json({
                 success: true,
-                data: statement
+                data: {
+                    supplier: {
+                        id: supplier.id,
+                        name: supplier.name,
+                        contact_number: supplier.contact_number,
+                        outstanding_dues: supplier.outstanding_dues
+                    },
+                    purchases,
+                    summary: {
+                        total_purchases: purchases.length,
+                        total_amount: totalAmount
+                    }
+                }
             });
         } catch (error) {
-            logger.error('Get customer statement error:', error);
+            logger.error('Get purchase history error:', error);
             res.status(500).json({
                 success: false,
-                message: error.message || 'Failed to fetch customer statement'
+                message: error.message || 'Failed to fetch purchase history'
             });
         }
     }
 
-    // Search customers
+    // Get payment history for a supplier
+    async getPaymentHistory(req, res, next) {
+        try {
+            const { id } = req.params;
+            const { companyId } = req.query;
+
+            if (!companyId) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Company ID is required'
+                });
+            }
+
+            const supplier = await SupplierModel.findById(id, companyId);
+            if (!supplier) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Supplier not found'
+                });
+            }
+
+            // Get payment vouchers for this supplier
+            const { data: payments, error } = await supabase
+                .from('vouchers')
+                .select(`
+                    id,
+                    voucher_number,
+                    date,
+                    amount,
+                    narration,
+                    voucher_type
+                `)
+                .eq('ledger_id', id)
+                .eq('voucher_type', 'PAYMENT')
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+
+            const totalAmount = payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0;
+
+            res.json({
+                success: true,
+                data: {
+                    supplier: {
+                        id: supplier.id,
+                        name: supplier.name
+                    },
+                    payments: payments || [],
+                    summary: {
+                        total_payments: payments?.length || 0,
+                        total_amount: totalAmount
+                    }
+                }
+            });
+        } catch (error) {
+            logger.error('Get payment history error:', error);
+            res.status(500).json({
+                success: false,
+                message: error.message || 'Failed to fetch payment history'
+            });
+        }
+    }
+
+    // Search suppliers
     async search(req, res, next) {
         try {
             const { q, companyId } = req.query;
@@ -331,20 +338,20 @@ class CustomerController {
                 });
             }
 
-            const customers = await CustomerModel.search(companyId, q);
+            const suppliers = await SupplierModel.search(companyId, q);
 
             res.json({
                 success: true,
-                data: customers
+                data: suppliers
             });
         } catch (error) {
-            logger.error('Search customers error:', error);
+            logger.error('Search suppliers error:', error);
             res.status(500).json({
                 success: false,
-                message: error.message || 'Failed to search customers'
+                message: error.message || 'Failed to search suppliers'
             });
         }
     }
 }
 
-module.exports = new CustomerController();
+module.exports = new SupplierController();
