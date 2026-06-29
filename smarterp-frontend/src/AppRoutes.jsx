@@ -10,13 +10,7 @@ import LedgerPage from './pages/LedgerPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import StockPage from './pages/StockPage';
 import VoucherPage from './pages/VoucherPage';
-
-const BillingPage = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Billing</h1>
-    <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-  </div>
-);
+import BillingPage from './pages/BillingPage';
 
 const CustomerPage = () => (
   <div className="p-6">
