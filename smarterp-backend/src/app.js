@@ -97,6 +97,7 @@ app.use('/api/v1/vouchers', require('./routes/v1/voucher.routes'));
 app.use('/api/v1/invoices', require('./routes/v1/invoice.routes'));
 app.use('/api/v1/customers', require('./routes/v1/customer.routes'));
 app.use('/api/v1/suppliers', require('./routes/v1/supplier.routes'));
+app.use('/api/v1/reports', require('./routes/v1/report.routes'));
 
 // Error handling
 app.use(errorHandler);
