@@ -90,6 +90,9 @@ app.use('/api/v1/companies', require('./routes/v1/company.routes'));
 app.use('/api/v1/dashboard', require('./routes/v1/dashboard.routes'));
 app.use('/api/v1/ledgers', require('./routes/v1/ledger.routes'));
 app.use('/api/v1/account-groups', require('./routes/v1/accountGroup.routes'));
+app.use('/api/v1/stock-groups', require('./routes/v1/stockGroup.routes'));
+app.use('/api/v1/units', require('./routes/v1/unit.routes'));
+app.use('/api/v1/stock-items', require('./routes/v1/stockItem.routes'));
 
 // Error handling
 app.use(errorHandler);
