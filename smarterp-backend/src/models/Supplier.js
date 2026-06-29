@@ -1,0 +1,171 @@
+const { supabase } = require('../config/database');
+const logger = require('../utils/logger');
+
+class SupplierModel {
+    async create(supplierData, userId, companyId) {
+        try {
+            // Check if supplier already exists
+            const { data: existing, error: existingError } = await supabase
+                .from('suppliers')
+                .select('id')
+                .eq('name', supplierData.name)
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .single();
+
+            if (existing) {
+                throw new Error('Supplier with this name already exists');
+            }
+
+            const newSupplier = {
+                name: supplierData.name,
+                gst_number: supplierData.gst_number || null,
+                address: supplierData.address || null,
+                contact_number: supplierData.contact_number || null,
+                outstanding_dues: supplierData.outstanding_dues || 0,
+                company_id: companyId,
+                created_by: userId
+            };
+
+            const { data, error } = await supabase
+                .from('suppliers')
+                .insert(newSupplier)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            logger.info(`Supplier created: ${data.name}`);
+            return data;
+        } catch (error) {
+            logger.error('Error creating supplier:', error);
+            throw error;
+        }
+    }
+
+    async findAll(companyId, filters = {}) {
+        try {
+            let query = supabase
+                .from('suppliers')
+                .select('*')
+                .eq('company_id', companyId)
+                .is('deleted_at', null);
+
+            if (filters.search) {
+                query = query.ilike('name', `%${filters.search}%`);
+            }
+
+            const { data, error } = await query.order('name');
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            logger.error('Error finding suppliers:', error);
+            throw error;
+        }
+    }
+
+    async findById(id, companyId) {
+        try {
+            const { data, error } = await supabase
+                .from('suppliers')
+                .select('*')
+                .eq('id', id)
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .single();
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            logger.error('Error finding supplier:', error);
+            throw error;
+        }
+    }
+
+    async update(id, companyId, supplierData) {
+        try {
+            const { data, error } = await supabase
+                .from('suppliers')
+                .update(supplierData)
+                .eq('id', id)
+                .eq('company_id', companyId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            logger.info(`Supplier updated: ${data.name}`);
+            return data;
+        } catch (error) {
+            logger.error('Error updating supplier:', error);
+            throw error;
+        }
+    }
+
+    async softDelete(id, companyId) {
+        try {
+            const { error } = await supabase
+                .from('suppliers')
+                .update({ 
+                    deleted_at: new Date().toISOString(),
+                    name: 'deleted_' + Date.now()
+                })
+                .eq('id', id)
+                .eq('company_id', companyId);
+
+            if (error) throw error;
+
+            logger.info(`Supplier deleted: ${id}`);
+            return { success: true };
+        } catch (error) {
+            logger.error('Error deleting supplier:', error);
+            throw error;
+        }
+    }
+
+    async getPurchaseHistory(id, companyId) {
+        try {
+            const { data, error } = await supabase
+                .from('vouchers')
+                .select(`
+                    id,
+                    voucher_number,
+                    date,
+                    amount,
+                    narration
+                `)
+                .eq('ledger_id', id)
+                .eq('voucher_type', 'PURCHASE')
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            logger.error('Error getting purchase history:', error);
+            throw error;
+        }
+    }
+
+    async search(companyId, searchTerm) {
+        try {
+            const { data, error } = await supabase
+                .from('suppliers')
+                .select('*')
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
+                .ilike('name', `%${searchTerm}%`)
+                .limit(20);
+
+            if (error) throw error;
+            return data;
+        } catch (error) {
+            logger.error('Error searching suppliers:', error);
+            throw error;
+        }
+    }
+}
+
+module.exports = new SupplierModel();
