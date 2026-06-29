@@ -94,6 +94,7 @@ app.use('/api/v1/stock-groups', require('./routes/v1/stockGroup.routes'));
 app.use('/api/v1/units', require('./routes/v1/unit.routes'));
 app.use('/api/v1/stock-items', require('./routes/v1/stockItem.routes'));
 app.use('/api/v1/vouchers', require('./routes/v1/voucher.routes'));
+app.use('/api/v1/invoices', require('./routes/v1/invoice.routes'));
 
 // Error handling
 app.use(errorHandler);
