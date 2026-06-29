@@ -93,6 +93,7 @@ app.use('/api/v1/account-groups', require('./routes/v1/accountGroup.routes'));
 app.use('/api/v1/stock-groups', require('./routes/v1/stockGroup.routes'));
 app.use('/api/v1/units', require('./routes/v1/unit.routes'));
 app.use('/api/v1/stock-items', require('./routes/v1/stockItem.routes'));
+app.use('/api/v1/vouchers', require('./routes/v1/voucher.routes'));
 
 // Error handling
 app.use(errorHandler);
