@@ -41,15 +41,26 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     fetchStockItems();
   }, []);
 
-  const fetchSuppliers = async () => {
+const fetchSuppliers = async () => {
     try {
-      const response = await supplierService.getAll(currentCompany.id);
-      setSuppliers(Array.isArray(response.data) ? response.data : []);
+        console.log('Fetching suppliers...'); // Debug log
+        const response = await supplierService.getAll(currentCompany.id);
+        console.log('Suppliers response:', response); // Debug log
+        
+        // Ensure we set an array
+        if (response && response.data) {
+            setSuppliers(Array.isArray(response.data) ? response.data : []);
+        } else if (Array.isArray(response)) {
+            setSuppliers(response);
+        } else {
+            setSuppliers([]);
+        }
     } catch (error) {
-      console.error('Error fetching suppliers:', error);
-      setSuppliers([]);
+        console.error('Error fetching suppliers:', error);
+        setSuppliers([]);
+        toast.error('Failed to load suppliers');
     }
-  };
+};
 
   const fetchStockItems = async () => {
     try {

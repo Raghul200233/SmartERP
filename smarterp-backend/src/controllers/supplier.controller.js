@@ -77,7 +77,8 @@ class SupplierController {
             logger.error('Get suppliers error:', error);
             res.status(500).json({
                 success: false,
-                message: error.message || 'Failed to fetch suppliers'
+                message: error.message || 'Failed to fetch suppliers',
+                data: []
             });
         }
     }

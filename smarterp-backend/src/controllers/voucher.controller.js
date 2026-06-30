@@ -69,38 +69,41 @@ class VoucherController {
     }
 
     // ✅ Get all vouchers
-    async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
-            const filters = {
-                voucher_type: req.query.type,
-                status: req.query.status,
-                start_date: req.query.startDate,
-                end_date: req.query.endDate
-            };
+async getAll(req, res, next) {
+    try {
+        const { companyId } = req.query;
+        const filters = {
+            voucher_type: req.query.type,
+            status: req.query.status,
+            start_date: req.query.startDate,
+            end_date: req.query.endDate
+        };
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const vouchers = await VoucherModel.findAll(companyId, filters);
-
-            res.json({
-                success: true,
-                data: vouchers || [],
-                count: vouchers?.length || 0
-            });
-        } catch (error) {
-            logger.error('Get vouchers error:', error);
-            res.status(500).json({
+        if (!companyId) {
+            return res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to fetch vouchers'
+                message: 'Company ID is required'
             });
         }
+
+        console.log('Fetching vouchers for company:', companyId, 'filters:', filters);
+
+        const vouchers = await VoucherModel.findAll(companyId, filters);
+
+        res.json({
+            success: true,
+            data: vouchers || [],
+            count: vouchers?.length || 0
+        });
+    } catch (error) {
+        console.error('Get vouchers error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch vouchers',
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
+}
 
     // ✅ Get voucher by ID
     async getById(req, res, next) {

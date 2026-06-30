@@ -118,6 +118,7 @@ export const VoucherList = ({ onEdit, onView, onAdd }) => {
   };
 
   const filteredVouchers = vouchers || [];
+  const safeVouchers = Array.isArray(filteredVouchers) ? filteredVouchers : [];
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -329,7 +330,7 @@ export const VoucherList = ({ onEdit, onView, onAdd }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredVouchers.map((voucher) => {
+                {safeVouchers.map((voucher) => {
                 const Icon = VOUCHER_TYPE_ICONS[voucher.voucher_type] || FileText;
                 const colorClass = VOUCHER_TYPE_COLORS[voucher.voucher_type] || 'bg-gray-100 text-gray-600';
                 const statusColor = getStatusColor(voucher.status);

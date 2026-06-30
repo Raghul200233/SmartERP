@@ -1,29 +1,31 @@
 import React, { useEffect } from 'react';
 import { AppRoutes } from './AppRoutes';
-import { useMainStore } from './store/mainStore';
 import { useCompanyStore } from './store/companyStore';
-import { useDataSync } from './hooks/useDataSync';
+import { useDashboardStore } from './store/dashboardStore';
+import { dashboardService } from './services/dashboard.service';
 
 function App() {
   const { currentCompany } = useCompanyStore();
-  const { clearLastCreated } = useMainStore();
-  const { refreshAll } = useDataSync(currentCompany?.id);
+  const { setDashboardData, setLoading } = useDashboardStore();
 
-  // Auto-refresh when company changes
+  // Only fetch dashboard data when company changes
   useEffect(() => {
     if (currentCompany) {
-      refreshAll();
+      fetchDashboardData();
     }
   }, [currentCompany]);
 
-  // Clear last created items periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      clearLastCreated();
-    }, 30000); // Clear after 30 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const data = await dashboardService.getOverview(currentCompany.id);
+      setDashboardData(data);
+    } catch (error) {
+      console.error('Error fetching dashboard:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return <AppRoutes />;
 }

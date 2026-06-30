@@ -1,33 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { useCompanyStore } from '../store/companyStore';
 import { useDashboardStore } from '../store/dashboardStore';
-import { useVoucherStore } from '../store/voucherStore';
-import { useStockStore } from '../store/stockStore';
 import { dashboardService } from '../services/dashboard.service';
 import { StatsCards } from '../components/dashboard/StatsCards';
 import { SalesChart } from '../components/dashboard/SalesChart';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { TopCustomers } from '../components/dashboard/TopCustomers';
 import { LowStockAlert } from '../components/dashboard/LowStockAlert';
-import { useMainStore } from '../store/mainStore';
-import { useDataSync } from '../hooks/useDataSync';
 import toast from 'react-hot-toast';
 
 const DashboardPage = () => {
   const { currentCompany } = useCompanyStore();
   const { dashboardData, setDashboardData, isLoading, setLoading } = useDashboardStore();
-  const { lastCreatedVoucher, clearLastCreatedVoucher } = useVoucherStore();
-  const { lastUpdatedItem, clearLastUpdatedItem } = useStockStore();
-  const { currentCompany } = useCompanyStore();
-  const { dashboard, loading } = useMainStore();
-  const { refreshAll } = useDataSync(currentCompany?.id);
   const [salesData, setSalesData] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [topCustomers, setTopCustomers] = useState([]);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [loading, setLoadingState] = useState(true);
-
-  const dashboardData = dashboard;
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (currentCompany) {
@@ -35,68 +25,15 @@ const DashboardPage = () => {
     }
   }, [currentCompany]);
 
-  // ✅ Listen for voucher creation updates
-  useEffect(() => {
-    if (lastCreatedVoucher) {
-      // Update dashboard with new voucher data
-      const isSales = lastCreatedVoucher.voucher_type === 'SALES';
-      const amount = lastCreatedVoucher.amount || 0;
-      
-      setDashboardData({
-        [isSales ? 'todaySales' : 'todayPurchases']: 
-          (dashboardData[isSales ? 'todaySales' : 'todayPurchases'] || 0) + amount,
-        recentTransactions: [
-          {
-            id: lastCreatedVoucher.id,
-            description: lastCreatedVoucher.narration || `${lastCreatedVoucher.voucher_type} Voucher`,
-            amount: amount,
-            type: isSales ? 'CREDIT' : 'DEBIT',
-            date: lastCreatedVoucher.date,
-            reference: lastCreatedVoucher.voucher_number
-          },
-          ...dashboardData.recentTransactions || []
-        ].slice(0, 10)
-      });
-
-      // Update sales data chart
-      const month = new Date(lastCreatedVoucher.date).toLocaleString('default', { month: 'short' });
-      setSalesData(prev => {
-        const existing = prev.find(d => d.name === month);
-        if (existing) {
-          return prev.map(d => 
-            d.name === month 
-              ? { ...d, [isSales ? 'sales' : 'purchases']: (d[isSales ? 'sales' : 'purchases'] || 0) + amount }
-              : d
-          );
-        }
-        return [...prev, { name: month, sales: isSales ? amount : 0, purchases: isSales ? 0 : amount }];
-      });
-
-      clearLastCreatedVoucher();
-    }
-  }, [lastCreatedVoucher]);
-
-  // ✅ Listen for stock updates
-  useEffect(() => {
-    if (lastUpdatedItem) {
-      // Update stock in dashboard
-      const item = stockItems.find(i => i.id === lastUpdatedItem.id);
-      if (item) {
-        const newStockValue = dashboardData.stockValue + 
-          (lastUpdatedItem.current_quantity - item.current_quantity) * item.purchase_price;
-        setDashboardData({ stockValue: newStockValue });
-      }
-      clearLastUpdatedItem();
-    }
-  }, [lastUpdatedItem]);
-
   const fetchDashboardData = async () => {
     try {
       setLoadingState(true);
       setLoading(true);
+      setError(null);
 
       const data = await dashboardService.getOverview(currentCompany.id);
       
+      // ✅ Update dashboard data in store
       setDashboardData(data);
       setSalesData(data.salesData || []);
       setTransactions(data.recentTransactions || []);
@@ -105,6 +42,7 @@ const DashboardPage = () => {
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      setError(error.message);
       toast.error('Failed to load dashboard data');
     } finally {
       setLoadingState(false);
@@ -184,9 +122,9 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {stats && <StatsCards stats={stats} />}
-
+      {/* ✅ Use dashboardData instead of stats */}
+      <StatsCards stats={dashboardData} />
+      
       {/* Charts and Alerts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">

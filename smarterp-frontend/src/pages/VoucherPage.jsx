@@ -1,18 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 import { VoucherList } from '../components/voucher/VoucherList';
 import { PurchaseVoucher } from '../components/voucher/PurchaseVoucher';
 import { SalesVoucher } from '../components/voucher/SalesVoucher';
 import { VoucherDetail } from '../components/voucher/VoucherDetail';
 import { useMainStore } from '../store/mainStore';
+import { useVoucherStore } from '../store/voucherStore';
+import { voucherService } from '../services/voucher.service';
 
 const VoucherPage = () => {
-  const { vouchers } = useMainStore();
+  const { vouchers , currentCompany} = useMainStore();
   const voucherList = vouchers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [editMode, setEditMode] = useState(false);
   const [voucherType, setVoucherType] = useState('PURCHASE');
+  
+  useEffect(() => {
+  if (currentCompany) {
+    fetchVouchers();
+  }
+}, [currentCompany]);
+
+const fetchVouchers = async () => {
+  try {
+    setLoading(true);
+    const response = await voucherService.getAll(currentCompany.id);
+    setVouchers(Array.isArray(response.data) ? response.data : []);
+  } catch (error) {
+    console.error('Error fetching vouchers:', error);
+    setVouchers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAdd = (type = 'PURCHASE') => {
     setSelectedVoucher(null);

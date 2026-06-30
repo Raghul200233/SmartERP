@@ -293,19 +293,6 @@ class VoucherModel {
                         id,
                         name,
                         ledger_type
-                    ),
-                    inventory_transactions (
-                        id,
-                        stock_item_id,
-                        quantity,
-                        rate,
-                        value,
-                        selling_price,
-                        stock_items!inner (
-                            id,
-                            name,
-                            sku
-                        )
                     )
                 `)
                 .eq('company_id', companyId)
@@ -331,10 +318,14 @@ class VoucherModel {
 
             const { data, error } = await query;
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error in findAll:', error);
+                throw error;
+            }
+            
             return data || [];
         } catch (error) {
-            logger.error('Error finding vouchers:', error);
+            console.error('Error finding vouchers:', error);
             throw error;
         }
     }
@@ -349,15 +340,6 @@ class VoucherModel {
                         id,
                         name,
                         ledger_type
-                    ),
-                    inventory_transactions (
-                        *,
-                        stock_items!inner (
-                            id,
-                            name,
-                            sku,
-                            selling_price
-                        )
                     )
                 `)
                 .eq('id', id)
@@ -371,10 +353,6 @@ class VoucherModel {
             logger.error('Error finding voucher:', error);
             throw error;
         }
-    }
-
-    async getVoucherTypes() {
-        return ['PURCHASE', 'SALES'];
     }
 
     async getStats(companyId, startDate, endDate) {
@@ -412,6 +390,10 @@ class VoucherModel {
             logger.error('Error getting voucher stats:', error);
             throw error;
         }
+    }
+
+    async getVoucherTypes() {
+        return ['PURCHASE', 'SALES'];
     }
 }
 

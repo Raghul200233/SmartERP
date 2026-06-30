@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
 import { StockGroupList } from '../components/stock/StockGroupList';
 import { StockGroupForm } from '../components/stock/StockGroupForm';
 import { StockItemList } from '../components/stock/StockItemList';
 import { StockItemForm } from '../components/stock/StockItemForm';
 import { useStockStore } from '../store/stockStore';
+import { stockItemService } from '../services/stock.service';
 import { useVoucherStore } from '../store/voucherStore';
 import { useMainStore } from '../store/mainStore';
 
@@ -15,9 +16,9 @@ const StockPage = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [editMode, setEditMode] = useState(false);
-  const { stock } = useMainStore();
+  const { stock , currentCompany} = useMainStore();
   const stockItems = stock.items || [];
-  const { stockItems, setStockItems, lastUpdatedItem, clearLastUpdatedItem } = useStockStore();
+  const { setStockItems, lastUpdatedItem, clearLastUpdatedItem } = useStockStore();
   const { lastCreatedVoucher } = useVoucherStore();
 
     // ✅ Listen for voucher creation to update stock
@@ -54,6 +55,25 @@ const StockPage = () => {
       clearLastUpdatedItem();
     }
   }, [lastUpdatedItem]);
+
+  useEffect(() => {
+  if (currentCompany) {
+    fetchStockItems();
+  }
+}, [currentCompany]);
+
+const fetchStockItems = async () => {
+  try {
+    setLoading(true);
+    const response = await stockItemService.getAll(currentCompany.id);
+    setStockItems(Array.isArray(response.data) ? response.data : []);
+  } catch (error) {
+    console.error('Error fetching stock:', error);
+    setStockItems([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAddGroup = () => {
     setSelectedGroup(null);

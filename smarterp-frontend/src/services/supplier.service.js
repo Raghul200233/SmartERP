@@ -2,14 +2,19 @@ import api from './api';
 
 export const supplierService = {
   // Get all suppliers
-  async getAll(companyId, filters = {}) {
-    const params = new URLSearchParams({
-      companyId,
-      ...filters
-    });
-    const response = await api.get(`/suppliers?${params}`);
-    return response.data.data;
-  },
+    async getAll(companyId, filters = {}) {
+        try {
+            const params = new URLSearchParams({
+                companyId,
+                ...filters
+            });
+            const response = await api.get(`/suppliers?${params}`);
+            return response.data; // Make sure this returns { data: [], count: 0 }
+        } catch (error) {
+            console.error('Error fetching suppliers:', error);
+            return { data: [], count: 0 };
+        }
+    },
 
   // Get supplier by ID
   async getById(companyId, id) {

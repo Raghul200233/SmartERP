@@ -39,7 +39,7 @@ app.use(compression());
 
 // Rate limiting
 const limiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 900000,
+    windowMs: 60*1000, // 1 minute
     max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
     standardHeaders: true,
     legacyHeaders: false,

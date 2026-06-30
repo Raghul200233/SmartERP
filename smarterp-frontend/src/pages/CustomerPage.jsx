@@ -1,16 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 import { CustomerList } from '../components/customer/CustomerList';
 import { CustomerForm } from '../components/customer/CustomerForm';
 import { CustomerLedger } from '../components/customer/CustomerLedger';
 import { useMainStore } from '../store/mainStore';
+import { useCustomerStore } from '../store/customerStore';
+import { customerService } from '../services/customer.service';
 
 const CustomerPage = () => {
-  const { customers } = useMainStore();
+  const { customers , currentCompany} = useMainStore();
   const customerList = customers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+  if (currentCompany) {
+    fetchCustomers();
+  }
+}, [currentCompany]);
+
+const fetchCustomers = async () => {
+  try {
+    setLoading(true);
+    const response = await customerService.getAll(currentCompany.id);
+    setCustomers(Array.isArray(response.data) ? response.data : []);
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    setCustomers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAdd = () => {
     setSelectedCustomer(null);

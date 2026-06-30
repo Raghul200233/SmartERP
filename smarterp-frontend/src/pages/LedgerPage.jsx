@@ -1,16 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState , useEffect} from 'react';
 import { LedgerList } from '../components/ledger/LedgerList';
 import { LedgerForm } from '../components/ledger/LedgerForm';
 import { LedgerStatement } from '../components/ledger/LedgerStatement';
 import { useMainStore } from '../store/mainStore';
+import { useLedgerStore } from '../store/ledgerStore';
+import { ledgerService } from '../services/ledger.service';
+
 
 const LedgerPage = () => {
-  const { ledgers } = useMainStore();
+  const { ledgers , currentCompany} = useMainStore();
   const ledgerList = ledgers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
   const [selectedLedger, setSelectedLedger] = useState(null);
   const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+  if (currentCompany) {
+    fetchLedgers();
+  }
+}, [currentCompany]);
+
+const fetchLedgers = async () => {
+  try {
+    setLoading(true);
+    const response = await ledgerService.getAll(currentCompany.id);
+    setLedgers(Array.isArray(response.data) ? response.data : []);
+  } catch (error) {
+    console.error('Error fetching ledgers:', error);
+    setLedgers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleAdd = () => {
     setSelectedLedger(null);
