@@ -3,6 +3,7 @@ import { X, Loader2, Truck, Phone, Building2, CreditCard ,DollarSign} from 'luci
 import { useCompanyStore } from '../../store/companyStore';
 import { useSupplierStore } from '../../store/supplierStore';
 import { supplierService } from '../../services/supplier.service';
+import { eventBus } from '../../utils/eventBus';
 import toast from 'react-hot-toast';
 
 export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
@@ -64,7 +65,8 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
         await supplierService.update(currentCompany.id, supplier.id, data);
         toast.success('Supplier updated successfully');
       } else {
-        await supplierService.create(currentCompany.id, data);
+        const response = await supplierService.create(currentCompany.id, data);
+        eventBus.emitSupplierCreated(response);
         toast.success('Supplier created successfully');
       }
 

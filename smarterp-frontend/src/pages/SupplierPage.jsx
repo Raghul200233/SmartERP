@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { SupplierList } from '../components/supplier/SupplierList';
 import { SupplierForm } from '../components/supplier/SupplierForm';
 import { SupplierDetails } from '../components/supplier/SupplierDetails';
+import { useMainStore } from '../store/mainStore';
 
 const SupplierPage = () => {
+  const { suppliers } = useMainStore();
+  const supplierList = suppliers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);

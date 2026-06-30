@@ -3,6 +3,7 @@ const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
 
 class VoucherController {
+    // ✅ Create voucher
     async create(req, res, next) {
         try {
             const { companyId } = req.query;
@@ -15,36 +16,33 @@ class VoucherController {
                 });
             }
 
-                    // Validate voucher type
-        const validTypes = await VoucherModel.getVoucherTypes();
-        if (!validTypes.includes(voucherData.voucher_type)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid voucher type'
-            });
-        }
-
-        // ✅ Check if ledger exists before creating
-        if (voucherData.ledger_id) {
-            const { data: ledger, error: ledgerError } = await supabase
-                .from('ledgers')
-                .select('id, name')
-                .eq('id', voucherData.ledger_id)
-                .eq('company_id', companyId)
-                .is('deleted_at', null)
-                .single();
-
-            if (ledgerError || !ledger) {
+            // Validate voucher type
+            const validTypes = await VoucherModel.getVoucherTypes();
+            if (!validTypes.includes(voucherData.voucher_type)) {
                 return res.status(400).json({
                     success: false,
-                    message: `Ledger not found. Please ensure the customer/supplier has a corresponding ledger.`,
-                    details: {
-                        ledger_id: voucherData.ledger_id,
-                        action: 'Create a customer/supplier ledger first'
-                    }
+                    message: 'Invalid voucher type. Use PURCHASE or SALES'
                 });
             }
-        }
+
+            // Validate items
+            if (!voucherData.items || voucherData.items.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'At least one item is required'
+                });
+            }
+
+            // Validate payment type for sales
+            if (voucherData.voucher_type === 'SALES') {
+                const validPayments = ['CASH', 'CARD', 'UPI'];
+                if (!voucherData.payment_type || !validPayments.includes(voucherData.payment_type)) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid payment type. Use CASH, CARD, or UPI'
+                    });
+                }
+            }
 
             const voucher = await VoucherModel.create(voucherData, req.user.id, companyId);
 
@@ -70,6 +68,7 @@ class VoucherController {
         }
     }
 
+    // ✅ Get all vouchers
     async getAll(req, res, next) {
         try {
             const { companyId } = req.query;
@@ -77,8 +76,7 @@ class VoucherController {
                 voucher_type: req.query.type,
                 status: req.query.status,
                 start_date: req.query.startDate,
-                end_date: req.query.endDate,
-                search: req.query.search
+                end_date: req.query.endDate
             };
 
             if (!companyId) {
@@ -92,8 +90,8 @@ class VoucherController {
 
             res.json({
                 success: true,
-                data: vouchers,
-                count: vouchers.length
+                data: vouchers || [],
+                count: vouchers?.length || 0
             });
         } catch (error) {
             logger.error('Get vouchers error:', error);
@@ -104,6 +102,7 @@ class VoucherController {
         }
     }
 
+    // ✅ Get voucher by ID
     async getById(req, res, next) {
         try {
             const { id } = req.params;
@@ -138,78 +137,7 @@ class VoucherController {
         }
     }
 
-    async update(req, res, next) {
-        try {
-            const { id } = req.params;
-            const { companyId } = req.query;
-            const voucherData = req.body;
-
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const voucher = await VoucherModel.update(id, companyId, voucherData);
-
-            await AuditLog.create({
-                user_id: req.user.id,
-                company_id: companyId,
-                action: `VOUCHER_${voucher.voucher_type}_UPDATED`,
-                resource_type: 'vouchers',
-                resource_id: voucher.id
-            });
-
-            res.json({
-                success: true,
-                message: 'Voucher updated successfully',
-                data: voucher
-            });
-        } catch (error) {
-            logger.error('Update voucher error:', error);
-            res.status(400).json({
-                success: false,
-                message: error.message || 'Failed to update voucher'
-            });
-        }
-    }
-
-    async delete(req, res, next) {
-        try {
-            const { id } = req.params;
-            const { companyId } = req.query;
-
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            await VoucherModel.softDelete(id, companyId);
-
-            await AuditLog.create({
-                user_id: req.user.id,
-                company_id: companyId,
-                action: 'VOUCHER_DELETED',
-                resource_type: 'vouchers',
-                resource_id: id
-            });
-
-            res.json({
-                success: true,
-                message: 'Voucher deleted successfully'
-            });
-        } catch (error) {
-            logger.error('Delete voucher error:', error);
-            res.status(400).json({
-                success: false,
-                message: error.message || 'Failed to delete voucher'
-            });
-        }
-    }
-
+    // ✅ Get voucher types
     async getTypes(req, res, next) {
         try {
             const types = await VoucherModel.getVoucherTypes();
@@ -227,6 +155,7 @@ class VoucherController {
         }
     }
 
+    // ✅ Get voucher stats
     async getStats(req, res, next) {
         try {
             const { companyId, startDate, endDate } = req.query;

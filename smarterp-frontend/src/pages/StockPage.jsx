@@ -4,6 +4,9 @@ import { StockGroupList } from '../components/stock/StockGroupList';
 import { StockGroupForm } from '../components/stock/StockGroupForm';
 import { StockItemList } from '../components/stock/StockItemList';
 import { StockItemForm } from '../components/stock/StockItemForm';
+import { useStockStore } from '../store/stockStore';
+import { useVoucherStore } from '../store/voucherStore';
+import { useMainStore } from '../store/mainStore';
 
 const StockPage = () => {
   const [activeTab, setActiveTab] = useState('items');
@@ -12,6 +15,45 @@ const StockPage = () => {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  const { stock } = useMainStore();
+  const stockItems = stock.items || [];
+  const { stockItems, setStockItems, lastUpdatedItem, clearLastUpdatedItem } = useStockStore();
+  const { lastCreatedVoucher } = useVoucherStore();
+
+    // ✅ Listen for voucher creation to update stock
+  useEffect(() => {
+    if (lastCreatedVoucher && lastCreatedVoucher.items) {
+      // Update stock items based on voucher
+      const updatedItems = [...stockItems];
+      lastCreatedVoucher.items.forEach(voucherItem => {
+        const index = updatedItems.findIndex(i => i.id === voucherItem.stock_item_id);
+        if (index !== -1) {
+          const isSales = lastCreatedVoucher.voucher_type === 'SALES';
+          const quantity = parseFloat(voucherItem.quantity) || 0;
+          updatedItems[index] = {
+            ...updatedItems[index],
+            current_quantity: isSales 
+              ? (updatedItems[index].current_quantity || 0) - quantity
+              : (updatedItems[index].current_quantity || 0) + quantity
+          };
+        }
+      });
+      setStockItems(updatedItems);
+    }
+  }, [lastCreatedVoucher]);
+
+  // ✅ Listen for direct stock updates
+  useEffect(() => {
+    if (lastUpdatedItem) {
+      const updatedItems = stockItems.map(item =>
+        item.id === lastUpdatedItem.id 
+          ? { ...item, ...lastUpdatedItem }
+          : item
+      );
+      setStockItems(updatedItems);
+      clearLastUpdatedItem();
+    }
+  }, [lastUpdatedItem]);
 
   const handleAddGroup = () => {
     setSelectedGroup(null);

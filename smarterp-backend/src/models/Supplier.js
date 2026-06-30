@@ -17,17 +17,18 @@ class SupplierModel {
                 throw new Error('Supplier with this name already exists');
             }
 
+            // Create supplier
             const newSupplier = {
                 name: supplierData.name,
-                gst_number: supplierData.gst_number || null,
-                address: supplierData.address || null,
                 contact_number: supplierData.contact_number || null,
+                address: supplierData.address || null,
+                gst_number: supplierData.gst_number || null,
                 outstanding_dues: supplierData.outstanding_dues || 0,
                 company_id: companyId,
                 created_by: userId
             };
 
-            const { data, error } = await supabase
+            const { data: supplier, error: supplierError } = await supabase
                 .from('suppliers')
                 .insert(newSupplier)
                 .select()
@@ -35,19 +36,35 @@ class SupplierModel {
 
             if (supplierError) throw supplierError;
 
+            // ✅ Create corresponding ledger
             await this.createSupplierLedger(supplier, userId, companyId);
 
-            logger.info(`Supplier created: ${data.name}`);
-            return data;
+            logger.info(`Supplier created: ${supplier.name}`);
+            return supplier;
         } catch (error) {
             logger.error('Error creating supplier:', error);
             throw error;
         }
     }
 
-        async createSupplierLedger(supplier, userId, companyId) {
+    async createSupplierLedger(supplier, userId, companyId) {
         try {
+            // Check if ledger already exists
+            const { data: existingLedger, error: checkError } = await supabase
+                .from('ledgers')
+                .select('id')
+                .eq('name', supplier.name)
+                .eq('ledger_type', 'SUPPLIER')
+                .eq('company_id', companyId)
+                .single();
+
+            if (existingLedger) {
+                logger.info(`Ledger already exists for supplier: ${supplier.name}`);
+                return;
+            }
+
             // Find Sundry Creditors group
+            let groupId;
             const { data: group, error: groupError } = await supabase
                 .from('account_groups')
                 .select('id')
@@ -55,7 +72,7 @@ class SupplierModel {
                 .eq('company_id', companyId)
                 .single();
 
-            if (groupError) {
+            if (groupError || !group) {
                 // Create group if it doesn't exist
                 const { data: newGroup, error: createGroupError } = await supabase
                     .from('account_groups')
@@ -69,31 +86,18 @@ class SupplierModel {
                     .single();
 
                 if (createGroupError) throw createGroupError;
-
-                // Create ledger with new group
-                const { error: ledgerError } = await supabase
-                    .from('ledgers')
-                    .insert({
-                        name: supplier.name,
-                        ledger_type: 'SUPPLIER',
-                        group_id: newGroup.id,
-                        company_id: companyId,
-                        opening_balance: 0,
-                        status: 'ACTIVE',
-                        created_by: userId
-                    });
-
-                if (ledgerError) throw ledgerError;
-                return;
+                groupId = newGroup.id;
+            } else {
+                groupId = group.id;
             }
 
-            // Create ledger with existing group
+            // Create ledger
             const { error: ledgerError } = await supabase
                 .from('ledgers')
                 .insert({
                     name: supplier.name,
                     ledger_type: 'SUPPLIER',
-                    group_id: group.id,
+                    group_id: groupId,
                     company_id: companyId,
                     opening_balance: 0,
                     status: 'ACTIVE',
@@ -101,6 +105,8 @@ class SupplierModel {
                 });
 
             if (ledgerError) throw ledgerError;
+            
+            logger.info(`Ledger created for supplier: ${supplier.name}`);
         } catch (error) {
             logger.error('Error creating supplier ledger:', error);
             throw error;

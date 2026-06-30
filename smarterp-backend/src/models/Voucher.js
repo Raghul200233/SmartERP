@@ -4,21 +4,67 @@ const logger = require('../utils/logger');
 class VoucherModel {
     async create(voucherData, userId, companyId) {
         try {
-        
-        if (ledgerId) {
-            // Check if ledger exists
-            const { data: ledger, error: ledgerError } = await supabase
-                .from('ledgers')
-                .select('id')
-                .eq('id', ledgerId)
-                .eq('company_id', companyId)
-                .is('deleted_at', null)
-                .single();
-
-            if (ledgerError || !ledger) {
-                 throw new Error(`Ledger not found: ${voucherData.ledger_id}`);
+            // Validate payment type
+            const validPaymentTypes = ['CASH', 'CARD', 'UPI'];
+            const paymentType = voucherData.payment_type || 'CASH';
+            if (!validPaymentTypes.includes(paymentType)) {
+                throw new Error('Invalid payment type. Use CASH, CARD, or UPI');
             }
-        }
+
+            // Get or create ledger for customer/supplier
+            let ledgerId = voucherData.ledger_id;
+            if (voucherData.ledger_name && !ledgerId) {
+                ledgerId = await this.getOrCreateLedger(
+                    voucherData.ledger_name,
+                    voucherData.ledger_type || 'CUSTOMER',
+                    companyId,
+                    userId
+                );
+            } else if (ledgerId) {
+                // Validate ledger exists
+                const { data: ledger, error } = await supabase
+                    .from('ledgers')
+                    .select('id')
+                    .eq('id', ledgerId)
+                    .eq('company_id', companyId)
+                    .is('deleted_at', null)
+                    .single();
+
+                if (error || !ledger) {
+                    ledgerId = await this.getOrCreateLedger(
+                        voucherData.ledger_name || 'Walk-in Customer',
+                        'CUSTOMER',
+                        companyId,
+                        userId
+                    );
+                }
+            } else {
+                // Default to Walk-in Customer
+                ledgerId = await this.getOrCreateLedger(
+                    'Walk-in Customer',
+                    'CUSTOMER',
+                    companyId,
+                    userId
+                );
+            }
+
+            // Calculate total amount from items
+            let totalAmount = 0;
+            let totalGst = 0;
+            const items = voucherData.items || [];
+
+            for (const item of items) {
+                const quantity = parseFloat(item.quantity) || 0;
+                const rate = parseFloat(item.rate) || 0;
+                const gst = parseFloat(item.gst_percentage) || 0;
+                const amount = quantity * rate;
+                const gstAmount = (amount * gst) / 100;
+                totalAmount += amount;
+                totalGst += gstAmount;
+            }
+
+            const grandTotal = totalAmount + totalGst - (parseFloat(voucherData.discount) || 0);
+
             // Generate voucher number
             const voucherNumber = await this.generateVoucherNumber(voucherData.voucher_type, companyId);
 
@@ -27,12 +73,13 @@ class VoucherModel {
                 voucher_type: voucherData.voucher_type,
                 voucher_number: voucherNumber,
                 date: voucherData.date || new Date().toISOString().split('T')[0],
-                ledger_id: voucherData.ledger_id || null,
+                ledger_id: ledgerId,
                 company_id: companyId,
-                amount: voucherData.amount || 0,
+                amount: grandTotal,
                 narration: voucherData.narration || null,
                 reference_number: voucherData.reference_number || null,
-                status: voucherData.status || 'DRAFT',
+                payment_type: paymentType,
+                status: voucherData.status || 'POSTED',
                 created_by: userId
             };
 
@@ -44,19 +91,7 @@ class VoucherModel {
 
             if (error) throw error;
 
-            // Create voucher entries (Double entry)
-            if (voucherData.entries && voucherData.entries.length > 0) {
-                for (const entry of voucherData.entries) {
-                    await this.createEntry({
-                        voucher_id: data.id,
-                        ledger_id: entry.ledger_id,
-                        amount: entry.amount,
-                        entry_type: entry.entry_type
-                    });
-                }
-            }
-
-            // Handle inventory for Purchase/Sales
+            // Process inventory for Purchase/Sales
             if (voucherData.voucher_type === 'PURCHASE' || voucherData.voucher_type === 'SALES') {
                 await this.processInventory(voucherData, data.id, userId, companyId);
             }
@@ -69,63 +104,144 @@ class VoucherModel {
         }
     }
 
-    async getOrCreateLedger(name, type, companyId, userId) {
-    try {
-        // Try to find existing ledger
-        const { data: existing, error: findError } = await supabase
-            .from('ledgers')
-            .select('id')
-            .eq('name', name)
-            .eq('company_id', companyId)
-            .is('deleted_at', null)
-            .single();
+    async processInventory(voucherData, voucherId, userId, companyId) {
+        try {
+            if (!voucherData.items || voucherData.items.length === 0) {
+                return;
+            }
 
-        if (existing) {
-            return existing.id;
+            const isPurchase = voucherData.voucher_type === 'PURCHASE';
+
+            for (const item of voucherData.items) {
+                const quantity = parseFloat(item.quantity) || 0;
+                const rate = parseFloat(item.rate) || 0;
+                const sellingPrice = parseFloat(item.selling_price) || rate;
+                
+                // Check if stock item exists
+                const { data: stockItem, error: stockError } = await supabase
+                    .from('stock_items')
+                    .select('id, current_quantity, purchase_price')
+                    .eq('id', item.stock_item_id)
+                    .eq('company_id', companyId)
+                    .single();
+
+                if (stockError) {
+                    throw new Error(`Stock item not found: ${item.stock_item_id}`);
+                }
+
+                const currentQty = stockItem.current_quantity || 0;
+                let newQuantity;
+
+                if (isPurchase) {
+                    // Purchase: Increase stock
+                    newQuantity = currentQty + quantity;
+                    
+                    // Update purchase price if it's a new purchase
+                    await supabase
+                        .from('stock_items')
+                        .update({ 
+                            current_quantity: newQuantity,
+                            purchase_price: rate,
+                            selling_price: sellingPrice || stockItem.selling_price
+                        })
+                        .eq('id', item.stock_item_id)
+                        .eq('company_id', companyId);
+                } else {
+                    // Sales: Decrease stock
+                    if (currentQty < quantity) {
+                        throw new Error(`Insufficient stock for item. Available: ${currentQty}, Requested: ${quantity}`);
+                    }
+                    newQuantity = currentQty - quantity;
+                    
+                    await supabase
+                        .from('stock_items')
+                        .update({ current_quantity: newQuantity })
+                        .eq('id', item.stock_item_id)
+                        .eq('company_id', companyId);
+                }
+
+                // Create inventory transaction
+                await supabase
+                    .from('inventory_transactions')
+                    .insert({
+                        stock_item_id: item.stock_item_id,
+                        transaction_type: isPurchase ? 'PURCHASE' : 'SALES',
+                        quantity: quantity,
+                        rate: isPurchase ? rate : sellingPrice,
+                        value: quantity * (isPurchase ? rate : sellingPrice),
+                        selling_price: isPurchase ? null : sellingPrice,
+                        voucher_id: voucherId,
+                        reference_type: voucherData.voucher_type,
+                        reference_id: voucherId,
+                        company_id: companyId,
+                        created_by: userId
+                    });
+            }
+        } catch (error) {
+            logger.error('Error processing inventory:', error);
+            throw error;
         }
+    }
 
-        // Get default group for this type
-        const groupMap = {
-            'CUSTOMER': 'Sundry Debtors',
-            'SUPPLIER': 'Sundry Creditors',
-            'BANK': 'Bank Accounts',
-            'CASH': 'Cash In Hand'
-        };
-
-        const groupName = groupMap[type] || 'Sundry Debtors';
-        
-        // Find the group
-        const { data: group, error: groupError } = await supabase
-            .from('account_groups')
-            .select('id')
-            .eq('name', groupName)
-            .eq('company_id', companyId)
-            .single();
-
-        if (groupError) {
-            // If group doesn't exist, create it
-            const { data: newGroup, error: createGroupError } = await supabase
-                .from('account_groups')
-                .insert({
-                    name: groupName,
-                    type: type === 'SUPPLIER' ? 'LIABILITY' : 'ASSET',
-                    company_id: companyId,
-                    created_by: userId
-                })
-                .select()
+    async getOrCreateLedger(name, type, companyId, userId) {
+        try {
+            // Try to find existing ledger
+            const { data: existing, error: findError } = await supabase
+                .from('ledgers')
+                .select('id')
+                .eq('name', name)
+                .eq('company_id', companyId)
+                .is('deleted_at', null)
                 .single();
 
-            if (createGroupError) throw createGroupError;
+            if (existing) {
+                return existing.id;
+            }
+
+            // Get default group
+            const groupMap = {
+                'CUSTOMER': 'Sundry Debtors',
+                'SUPPLIER': 'Sundry Creditors'
+            };
+            const groupName = groupMap[type] || 'Sundry Debtors';
             
-            // Create ledger with new group
+            const { data: group, error: groupError } = await supabase
+                .from('account_groups')
+                .select('id')
+                .eq('name', groupName)
+                .eq('company_id', companyId)
+                .single();
+
+            let groupId;
+            if (groupError || !group) {
+                const typeMap = { 'CUSTOMER': 'ASSET', 'SUPPLIER': 'LIABILITY' };
+                const { data: newGroup, error: createGroupError } = await supabase
+                    .from('account_groups')
+                    .insert({
+                        name: groupName,
+                        type: typeMap[type] || 'ASSET',
+                        company_id: companyId,
+                        created_by: userId
+                    })
+                    .select()
+                    .single();
+
+                if (createGroupError) throw createGroupError;
+                groupId = newGroup.id;
+            } else {
+                groupId = group.id;
+            }
+
+            // Create ledger
             const { data: newLedger, error: createError } = await supabase
                 .from('ledgers')
                 .insert({
                     name: name,
                     ledger_type: type,
-                    group_id: newGroup.id,
+                    group_id: groupId,
                     company_id: companyId,
                     status: 'ACTIVE',
+                    opening_balance: 0,
                     created_by: userId
                 })
                 .select()
@@ -133,130 +249,16 @@ class VoucherModel {
 
             if (createError) throw createError;
             return newLedger.id;
-        }
-
-        // Create ledger with existing group
-        const { data: newLedger, error: createError } = await supabase
-            .from('ledgers')
-            .insert({
-                name: name,
-                ledger_type: type,
-                group_id: group.id,
-                company_id: companyId,
-                status: 'ACTIVE',
-                created_by: userId
-            })
-            .select()
-            .single();
-
-        if (createError) throw createError;
-        return newLedger.id;
-    } catch (error) {
-        logger.error('Error getting/creating ledger:', error);
-        throw error;
-    }
-}
-
-    async createEntry(entryData) {
-        const { error } = await supabase
-            .from('voucher_entries')
-            .insert(entryData);
-
-        if (error) {
-            logger.error('Error creating voucher entry:', error);
+        } catch (error) {
+            logger.error('Error getting/creating ledger:', error);
             throw error;
         }
     }
 
-async processInventory(voucherData, voucherId, userId, companyId) {
-    try {
-        if (!voucherData.items || voucherData.items.length === 0) {
-            return;
-        }
-
-        const isPurchase = voucherData.voucher_type === 'PURCHASE';
-
-        for (const item of voucherData.items) {
-            const quantity = parseFloat(item.quantity) || 0;
-            const rate = parseFloat(item.rate) || 0;
-            
-            // Check if stock item exists
-            const { data: stockItem, error: stockError } = await supabase
-                .from('stock_items')
-                .select('id, current_quantity, purchase_price')
-                .eq('id', item.stock_item_id)
-                .eq('company_id', companyId)
-                .single();
-
-            if (stockError) {
-                console.error('Stock item error:', stockError);
-                throw new Error(`Stock item not found: ${item.stock_item_id}`);
-            }
-
-            const currentQty = stockItem.current_quantity || 0;
-            const newQuantity = isPurchase 
-                ? currentQty + quantity
-                : currentQty - quantity;
-
-            if (!isPurchase && newQuantity < 0) {
-                throw new Error(`Insufficient stock for item. Available: ${currentQty}, Requested: ${quantity}`);
-            }
-
-            // Update stock quantity
-            const { error: updateError } = await supabase
-                .from('stock_items')
-                .update({ current_quantity: newQuantity })
-                .eq('id', item.stock_item_id)
-                .eq('company_id', companyId);
-
-            if (updateError) {
-                console.error('Update stock error:', updateError);
-                throw new Error('Failed to update stock quantity');
-            }
-
-            // Create inventory transaction with voucher_id
-            const transactionData = {
-                stock_item_id: item.stock_item_id,
-                transaction_type: isPurchase ? 'PURCHASE' : 'SALES',
-                quantity: quantity,
-                rate: rate,
-                value: quantity * rate,
-                voucher_id: voucherId,  // Link to voucher
-                reference_type: voucherData.voucher_type,
-                reference_id: voucherId,
-                company_id: companyId,
-                created_by: userId
-            };
-
-            const { error: txError } = await supabase
-                .from('inventory_transactions')
-                .insert(transactionData);
-
-            if (txError) {
-                console.error('Transaction error:', txError);
-                // Rollback stock update
-                await supabase
-                    .from('stock_items')
-                    .update({ current_quantity: currentQty })
-                    .eq('id', item.stock_item_id)
-                    .eq('company_id', companyId);
-                throw new Error('Failed to create inventory transaction');
-            }
-        }
-    } catch (error) {
-        console.error('Error processing inventory:', error);
-        throw error;
-    }
-}
-
     async generateVoucherNumber(voucherType, companyId) {
         const prefix = {
             'PURCHASE': 'PUR',
-            'SALES': 'SAL',
-            'CONTRA': 'CON',
-            'JOURNAL': 'JRN',
-            'CREDIT_NOTE': 'CRN',
-            'DEBIT_NOTE': 'DRN'
+            'SALES': 'SAL'
         }[voucherType] || 'VCH';
 
         const { data, error } = await supabase
@@ -268,7 +270,6 @@ async processInventory(voucherData, voucherId, userId, companyId) {
             .limit(1);
 
         if (error) {
-            logger.error('Error generating voucher number:', error);
             return `${prefix}-000001`;
         }
 
@@ -293,15 +294,17 @@ async processInventory(voucherData, voucherId, userId, companyId) {
                         name,
                         ledger_type
                     ),
-                    voucher_entries (
+                    inventory_transactions (
                         id,
-                        ledger_id,
-                        amount,
-                        entry_type,
-                        ledgers!inner (
+                        stock_item_id,
+                        quantity,
+                        rate,
+                        value,
+                        selling_price,
+                        stock_items!inner (
                             id,
                             name,
-                            ledger_type
+                            sku
                         )
                     )
                 `)
@@ -324,16 +327,12 @@ async processInventory(voucherData, voucherId, userId, companyId) {
                 query = query.lte('date', filters.end_date);
             }
 
-            if (filters.search) {
-                query = query.ilike('voucher_number', `%${filters.search}%`);
-            }
-
             query = query.order('created_at', { ascending: false });
 
             const { data, error } = await query;
 
             if (error) throw error;
-            return data;
+            return data || [];
         } catch (error) {
             logger.error('Error finding vouchers:', error);
             throw error;
@@ -351,23 +350,13 @@ async processInventory(voucherData, voucherId, userId, companyId) {
                         name,
                         ledger_type
                     ),
-                    voucher_entries (
-                        id,
-                        ledger_id,
-                        amount,
-                        entry_type,
-                        ledgers!inner (
-                            id,
-                            name,
-                            ledger_type
-                        )
-                    ),
                     inventory_transactions (
                         *,
                         stock_items!inner (
                             id,
                             name,
-                            sku
+                            sku,
+                            selling_price
                         )
                     )
                 `)
@@ -384,80 +373,15 @@ async processInventory(voucherData, voucherId, userId, companyId) {
         }
     }
 
-    async update(id, companyId, voucherData) {
-        try {
-            const { data, error } = await supabase
-                .from('vouchers')
-                .update({
-                    date: voucherData.date,
-                    ledger_id: voucherData.ledger_id,
-                    amount: voucherData.amount,
-                    narration: voucherData.narration,
-                    reference_number: voucherData.reference_number,
-                    status: voucherData.status
-                })
-                .eq('id', id)
-                .eq('company_id', companyId)
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            // Update entries if provided
-            if (voucherData.entries) {
-                await supabase
-                    .from('voucher_entries')
-                    .delete()
-                    .eq('voucher_id', id);
-
-                for (const entry of voucherData.entries) {
-                    await this.createEntry({
-                        voucher_id: id,
-                        ledger_id: entry.ledger_id,
-                        amount: entry.amount,
-                        entry_type: entry.entry_type
-                    });
-                }
-            }
-
-            logger.info(`Voucher updated: ${data.voucher_number}`);
-            return data;
-        } catch (error) {
-            logger.error('Error updating voucher:', error);
-            throw error;
-        }
-    }
-
-    async softDelete(id, companyId) {
-        try {
-            const { error } = await supabase
-                .from('vouchers')
-                .update({ 
-                    deleted_at: new Date().toISOString(),
-                    status: 'CANCELLED'
-                })
-                .eq('id', id)
-                .eq('company_id', companyId);
-
-            if (error) throw error;
-
-            logger.info(`Voucher deleted: ${id}`);
-            return { success: true };
-        } catch (error) {
-            logger.error('Error deleting voucher:', error);
-            throw error;
-        }
-    }
-
     async getVoucherTypes() {
-        return ['PURCHASE', 'SALES', 'CONTRA', 'JOURNAL', 'CREDIT_NOTE', 'DEBIT_NOTE'];
+        return ['PURCHASE', 'SALES'];
     }
 
     async getStats(companyId, startDate, endDate) {
         try {
             const { data, error } = await supabase
                 .from('vouchers')
-                .select('voucher_type, amount')
+                .select('voucher_type, amount, payment_type')
                 .eq('company_id', companyId)
                 .is('deleted_at', null)
                 .gte('date', startDate)
@@ -465,19 +389,25 @@ async processInventory(voucherData, voucherId, userId, companyId) {
 
             if (error) throw error;
 
-            const stats = {};
-            let totalAmount = 0;
+            const stats = {
+                sales: { count: 0, amount: 0, cash: 0, card: 0, upi: 0 },
+                purchases: { count: 0, amount: 0 }
+            };
 
             for (const voucher of data) {
-                stats[voucher.voucher_type] = (stats[voucher.voucher_type] || 0) + voucher.amount;
-                totalAmount += voucher.amount;
+                if (voucher.voucher_type === 'SALES') {
+                    stats.sales.count++;
+                    stats.sales.amount += voucher.amount || 0;
+                    if (voucher.payment_type === 'CASH') stats.sales.cash += voucher.amount || 0;
+                    else if (voucher.payment_type === 'CARD') stats.sales.card += voucher.amount || 0;
+                    else if (voucher.payment_type === 'UPI') stats.sales.upi += voucher.amount || 0;
+                } else if (voucher.voucher_type === 'PURCHASE') {
+                    stats.purchases.count++;
+                    stats.purchases.amount += voucher.amount || 0;
+                }
             }
 
-            return {
-                stats,
-                totalAmount,
-                count: data.length
-            };
+            return stats;
         } catch (error) {
             logger.error('Error getting voucher stats:', error);
             throw error;

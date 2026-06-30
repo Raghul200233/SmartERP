@@ -3,6 +3,7 @@ import { X, Loader2, User, Phone } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { useCustomerStore } from '../../store/customerStore';
 import { customerService } from '../../services/customer.service';
+import { eventBus } from '../../utils/eventBus';
 import toast from 'react-hot-toast';
 
 export const CustomerForm = ({ customer, onClose, onSuccess }) => {
@@ -56,6 +57,7 @@ export const CustomerForm = ({ customer, onClose, onSuccess }) => {
         toast.success('Customer updated successfully');
       } else {
         await customerService.create(currentCompany.id, data);
+        eventBus.emitCustomerCreated(response);
         toast.success('Customer created successfully');
       }
 

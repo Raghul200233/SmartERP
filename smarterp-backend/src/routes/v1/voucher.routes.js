@@ -10,7 +10,5 @@ router.get('/types', VoucherController.getTypes);
 router.get('/stats', VoucherController.getStats);
 router.post('/', VoucherController.create);
 router.get('/:id', VoucherController.getById);
-router.put('/:id', VoucherController.update);
-router.delete('/:id', VoucherController.delete);
 
 module.exports = router;

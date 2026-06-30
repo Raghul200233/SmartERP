@@ -1,27 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Plus, Trash2, Printer, Download } from 'lucide-react';
+import { X, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { voucherService } from '../../services/voucher.service';
-import { ledgerService } from '../../services/ledger.service';
 import { supplierService } from '../../services/supplier.service';
 import { stockItemService } from '../../services/stock.service';
+import { useVoucherStore } from '../../store/voucherStore';
+import { useStockStore } from '../../store/stockStore';
+import { useDashboardStore } from '../../store/dashboardStore';
+import { eventBus } from '../../utils/eventBus';
 import toast from 'react-hot-toast';
 
 export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
   const { currentCompany } = useCompanyStore();
+  const { addVoucher, updateStats } = useVoucherStore();
+  const { updateStockItem } = useStockStore();
+  const { updateDashboardData } = useDashboardStore();
   const [formData, setFormData] = useState({
     supplier_id: '',
+    supplier_name: '',
     date: new Date().toISOString().split('T')[0],
     invoice_number: '',
     items: [{ stock_item_id: '', quantity: 1, rate: 0, gst: 0, amount: 0 }],
-    discount: 0,
-    freight: 0,
     narration: '',
-    status: 'DRAFT'
+    status: 'POSTED'
   });
   const [suppliers, setSuppliers] = useState([]);
   const [stockItems, setStockItems] = useState([]);
-  const [ledgers, setLedgers] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLocalLoading] = useState(false);
 
@@ -29,19 +33,13 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
   const [calculatedTotals, setCalculatedTotals] = useState({
     subtotal: 0,
     totalGst: 0,
-    totalDiscount: 0,
-    totalFreight: 0,
     grandTotal: 0
   });
 
   useEffect(() => {
     fetchSuppliers();
     fetchStockItems();
-    fetchLedgers();
-    if (voucher) {
-      loadVoucherData();
-    }
-  }, [voucher]);
+  }, []);
 
   const fetchSuppliers = async () => {
     try {
@@ -60,22 +58,6 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     } catch (error) {
       console.error('Error fetching stock items:', error);
       setStockItems([]);
-    }
-  };
-
-  const fetchLedgers = async () => {
-    try {
-      const response = await ledgerService.getAll(currentCompany.id);
-      setLedgers(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Error fetching ledgers:', error);
-      setLedgers([]);
-    }
-  };
-
-  const loadVoucherData = () => {
-    if (voucher) {
-      // Load data for editing
     }
   };
 
@@ -103,9 +85,6 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
       const quantity = parseFloat(newItems[index].quantity) || 0;
       const rate = parseFloat(newItems[index].rate) || 0;
       newItems[index].amount = quantity * rate;
-      
-      const gstPercent = parseFloat(newItems[index].gst) || 0;
-      newItems[index].gstAmount = (newItems[index].amount * gstPercent) / 100;
     }
 
     setFormData(prev => ({ ...prev, items: newItems }));
@@ -123,29 +102,26 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
       totalGst += (amount * gst) / 100;
     });
 
-    const totalDiscount = parseFloat(formData.discount) || 0;
-    const totalFreight = parseFloat(formData.freight) || 0;
-    const grandTotal = subtotal + totalGst - totalDiscount + totalFreight;
-
     setCalculatedTotals({
       subtotal,
       totalGst,
-      totalDiscount,
-      totalFreight,
-      grandTotal
+      grandTotal: subtotal + totalGst
     });
   };
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.supplier_id) {
-      newErrors.supplier_id = 'Supplier is required';
+    if (!formData.supplier_id && !formData.supplier_name) {
+      newErrors.supplier = 'Supplier is required';
     }
     if (!formData.date) {
       newErrors.date = 'Date is required';
     }
     if (formData.items.some(item => !item.stock_item_id)) {
       newErrors.items = 'All items must have a stock item selected';
+    }
+    if (formData.items.some(item => item.quantity <= 0)) {
+      newErrors.items = 'All items must have quantity greater than 0';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -158,55 +134,69 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
     try {
       setLocalLoading(true);
 
-      // Get the supplier details
       const supplier = suppliers.find(s => s.id === formData.supplier_id);
-
-      // Find Purchase ledger (Direct Expenses)
-      const purchaseLedger = ledgers.find(l => l.name === 'Purchases' || l.ledger_type === 'EXPENSE');
       
       const voucherData = {
         voucher_type: 'PURCHASE',
         date: formData.date,
-        ledger_id: formData.supplier_id,
+        ledger_id: formData.supplier_id || null,
+        ledger_name: supplier?.name || formData.supplier_name || 'Walk-in Supplier',
+        ledger_type: 'SUPPLIER',
         amount: calculatedTotals.grandTotal,
-        narration: formData.narration,
+        narration: formData.narration || `Purchase from ${supplier?.name || 'Supplier'}`,
         reference_number: formData.invoice_number,
-        status: formData.status,
+        status: 'POSTED',
         items: formData.items.map(item => ({
           stock_item_id: item.stock_item_id,
-          quantity: parseFloat(item.quantity),
-          rate: parseFloat(item.rate),
+          quantity: parseFloat(item.quantity) || 0,
+          rate: parseFloat(item.rate) || 0,
           gst_percentage: parseFloat(item.gst) || 0,
           amount: parseFloat(item.amount) || 0,
-          gst_amount: parseFloat(item.gstAmount) || 0
-        })),
-        entries: [
-          {
-            ledger_id: purchaseLedger?.id || formData.supplier_id,
-            amount: calculatedTotals.subtotal,
-            entry_type: 'DEBIT'
-          },
-          {
-            ledger_id: formData.supplier_id,
-            amount: calculatedTotals.grandTotal,
-            entry_type: 'CREDIT'
-          }
-        ]
+          gst_amount: (parseFloat(item.amount) || 0) * (parseFloat(item.gst) || 0) / 100
+        }))
       };
 
-      if (isEdit) {
-        await voucherService.update(currentCompany.id, voucher.id, voucherData);
-        toast.success('Purchase voucher updated successfully');
-      } else {
-        await voucherService.create(currentCompany.id, voucherData);
-        toast.success('Purchase voucher created successfully');
-      }
+    const response = await voucherService.create(currentCompany.id, voucherData);
+
+        // ✅ Emit events for real-time updates
+    eventBus.emitVoucherCreated({
+      ...response,
+      voucher_type: 'PURCHASE',
+      amount: calculatedTotals.grandTotal,
+      items: formData.items
+    });
+
+    // Emit stock updates for each item
+    formData.items.forEach(item => {
+      eventBus.emitStockUpdated({
+        id: item.stock_item_id,
+        current_quantity: (item.current_quantity || 0) + parseFloat(item.quantity)
+      });
+    });
+    
+    // ✅ Update store immediately
+    addVoucher(response);
+    
+    // ✅ Update stock items in store
+    formData.items.forEach(item => {
+      updateStockItem(item.stock_item_id, {
+        current_quantity: (item.current_quantity || 0) + parseFloat(item.quantity)
+      });
+    });
+
+    // ✅ Update dashboard stats
+    updateDashboardData({
+      todayPurchases: (dashboardData?.todayPurchases || 0) + calculatedTotals.grandTotal,
+      stockValue: (dashboardData?.stockValue || 0) + calculatedTotals.grandTotal
+    });
+
+      toast.success('Purchase voucher created successfully! Stock updated.');
 
       if (onSuccess) onSuccess();
       onClose();
     } catch (error) {
-      console.error('Error saving purchase voucher:', error);
-      toast.error(error.response?.data?.message || 'Failed to save purchase voucher');
+      console.error('Error:', error);
+      toast.error(error.response?.data?.message || 'Failed to create purchase voucher');
     } finally {
       setLocalLoading(false);
     }
@@ -224,18 +214,16 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-5xl w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             {isEdit ? 'Edit Purchase Voucher' : 'New Purchase Voucher'}
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Header Fields */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -243,19 +231,24 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
               </label>
               <select
                 value={formData.supplier_id}
-                onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
+                onChange={(e) => {
+                  const supplier = suppliers.find(s => s.id === e.target.value);
+                  setFormData({ 
+                    ...formData, 
+                    supplier_id: e.target.value,
+                    supplier_name: supplier?.name || ''
+                  });
+                }}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  errors.supplier_id ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
+                  errors.supplier ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
               >
                 <option value="">Select Supplier</option>
-                {Array.isArray(suppliers) && suppliers.map(supplier => (
-                  <option key={supplier.id} value={supplier.id}>
-                    {supplier.name}
-                  </option>
+                {Array.isArray(suppliers) && suppliers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
-              {errors.supplier_id && <p className="mt-1 text-sm text-red-500">{errors.supplier_id}</p>}
+              {errors.supplier && <p className="mt-1 text-sm text-red-500">{errors.supplier}</p>}
             </div>
 
             <div>
@@ -286,17 +279,11 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Items Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white">Purchase Items</h3>
-              <button
-                type="button"
-                onClick={addItem}
-                className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                Add Item
+              <button type="button" onClick={addItem} className="inline-flex items-center gap-1 px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                <Plus className="w-4 h-4" /> Add Item
               </button>
             </div>
 
@@ -327,8 +314,8 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
                       type="number"
                       value={item.quantity}
                       onChange={(e) => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                      min="0"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg"
+                      min="1"
                       step="1"
                     />
                   </div>
@@ -339,7 +326,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
                       type="number"
                       value={item.rate}
                       onChange={(e) => updateItem(index, 'rate', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg"
                       min="0"
                       step="0.01"
                     />
@@ -351,7 +338,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
                       type="number"
                       value={item.gst}
                       onChange={(e) => updateItem(index, 'gst', parseFloat(e.target.value) || 0)}
-                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg"
                       min="0"
                       max="100"
                       step="0.01"
@@ -369,11 +356,7 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
                   </div>
 
                   <div className="col-span-1 text-center">
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                    >
+                    <button type="button" onClick={() => removeItem(index)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -382,121 +365,45 @@ export const PurchaseVoucher = ({ voucher, onClose, onSuccess }) => {
             </div>
           </div>
 
-          {/* Totals Section */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Discount (₹)
+                  Narration
                 </label>
-                <input
-                  type="number"
-                  value={formData.discount}
-                  onChange={(e) => {
-                    setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 });
-                    calculateTotals();
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  min="0"
-                  step="0.01"
+                <textarea
+                  value={formData.narration}
+                  onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
+                  rows="2"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
+                  placeholder="Additional notes"
                 />
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Freight (₹)
-                </label>
-                <input
-                  type="number"
-                  value={formData.freight}
-                  onChange={(e) => {
-                    setFormData({ ...formData, freight: parseFloat(e.target.value) || 0 });
-                    calculateTotals();
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Status
-                </label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                >
-                  <option value="DRAFT">Draft</option>
-                  <option value="POSTED">Posted</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Summary */}
-            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="grid grid-cols-5 gap-3">
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Subtotal</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(calculatedTotals.subtotal)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">GST</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(calculatedTotals.totalGst)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Discount</p>
-                  <p className="font-semibold text-red-600 dark:text-red-400">-{formatCurrency(calculatedTotals.totalDiscount)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Freight</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(calculatedTotals.totalFreight)}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Grand Total</p>
-                  <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{formatCurrency(calculatedTotals.grandTotal)}</p>
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <p className="text-xs text-gray-500">Subtotal</p>
+                    <p className="font-semibold">{formatCurrency(calculatedTotals.subtotal)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">GST</p>
+                    <p className="font-semibold">{formatCurrency(calculatedTotals.totalGst)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Total</p>
+                    <p className="font-bold text-blue-600">{formatCurrency(calculatedTotals.grandTotal)}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Narration */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Narration
-            </label>
-            <textarea
-              value={formData.narration}
-              onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
-              rows="2"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="Additional notes"
-            />
-          </div>
-
-          {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
+            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
               Cancel
             </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {isEdit ? 'Updating...' : 'Creating...'}
-                </>
-              ) : (
-                isEdit ? 'Update Purchase' : 'Create Purchase'
-              )}
+            <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium disabled:opacity-50 flex items-center gap-2">
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Create Purchase'}
             </button>
           </div>
         </form>

@@ -41,32 +41,8 @@ const healthCheck = async () => {
     }
 };
 
-// Simple query executor
-const executeQuery = async (query, params = []) => {
-    try {
-        const result = await supabase.rpc(query, params);
-        return result;
-    } catch (error) {
-        logger.error('Query execution error:', error);
-        throw error;
-    }
-};
-
-// Simple transaction helper
-const transaction = async (callback) => {
-    try {
-        const result = await callback();
-        return result;
-    } catch (error) {
-        logger.error('Transaction error:', error);
-        throw error;
-    }
-};
-
 module.exports = {
     supabase,
     supabaseAnon,
-    healthCheck,
-    executeQuery,
-    transaction
+    healthCheck
 };

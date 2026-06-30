@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { CustomerList } from '../components/customer/CustomerList';
 import { CustomerForm } from '../components/customer/CustomerForm';
 import { CustomerLedger } from '../components/customer/CustomerLedger';
+import { useMainStore } from '../store/mainStore';
 
 const CustomerPage = () => {
+  const { customers } = useMainStore();
+  const customerList = customers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);

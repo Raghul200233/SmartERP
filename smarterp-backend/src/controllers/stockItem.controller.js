@@ -1,3 +1,4 @@
+const { supabase } = require('../config/database');
 const StockItemModel = require('../models/StockItem');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');

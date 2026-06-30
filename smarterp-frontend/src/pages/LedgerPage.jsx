@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { LedgerList } from '../components/ledger/LedgerList';
 import { LedgerForm } from '../components/ledger/LedgerForm';
 import { LedgerStatement } from '../components/ledger/LedgerStatement';
+import { useMainStore } from '../store/mainStore';
 
 const LedgerPage = () => {
+  const { ledgers } = useMainStore();
+  const ledgerList = ledgers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showStatement, setShowStatement] = useState(false);
   const [selectedLedger, setSelectedLedger] = useState(null);

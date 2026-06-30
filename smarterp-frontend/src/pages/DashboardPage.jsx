@@ -1,81 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import { useCompanyStore } from '../store/companyStore';
-import { useUIStore } from '../store/uiStore';
+import { useDashboardStore } from '../store/dashboardStore';
+import { useVoucherStore } from '../store/voucherStore';
+import { useStockStore } from '../store/stockStore';
 import { dashboardService } from '../services/dashboard.service';
 import { StatsCards } from '../components/dashboard/StatsCards';
 import { SalesChart } from '../components/dashboard/SalesChart';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
 import { TopCustomers } from '../components/dashboard/TopCustomers';
 import { LowStockAlert } from '../components/dashboard/LowStockAlert';
+import { useMainStore } from '../store/mainStore';
+import { useDataSync } from '../hooks/useDataSync';
 import toast from 'react-hot-toast';
 
 const DashboardPage = () => {
   const { currentCompany } = useCompanyStore();
-  const { setLoading } = useUIStore();
-  const [dashboardData, setDashboardData] = useState(null);
+  const { dashboardData, setDashboardData, isLoading, setLoading } = useDashboardStore();
+  const { lastCreatedVoucher, clearLastCreatedVoucher } = useVoucherStore();
+  const { lastUpdatedItem, clearLastUpdatedItem } = useStockStore();
+  const { currentCompany } = useCompanyStore();
+  const { dashboard, loading } = useMainStore();
+  const { refreshAll } = useDataSync(currentCompany?.id);
   const [salesData, setSalesData] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [topCustomers, setTopCustomers] = useState([]);
   const [lowStockItems, setLowStockItems] = useState([]);
-  const [stats, setStats] = useState(null);
   const [loading, setLoadingState] = useState(true);
-  const [error, setError] = useState(null);
+
+  const dashboardData = dashboard;
 
   useEffect(() => {
-    console.log('Dashboard mounted, currentCompany:', currentCompany);
     if (currentCompany) {
       fetchDashboardData();
-    } else {
-      console.log('No company selected');
-      setLoadingState(false);
     }
   }, [currentCompany]);
 
-  const fetchDashboardData = async () => {
-    try {
-      console.log('Fetching dashboard data...');
-      setLoadingState(true);
-      setLoading(true);
-      setError(null);
-
-      const companyId = currentCompany.id;
-      console.log('Company ID:', companyId);
-
-      // Fetch all dashboard data from overview endpoint
-      console.log('Calling overview API...');
-      const data = await dashboardService.getOverview(companyId);
+  // ✅ Listen for voucher creation updates
+  useEffect(() => {
+    if (lastCreatedVoucher) {
+      // Update dashboard with new voucher data
+      const isSales = lastCreatedVoucher.voucher_type === 'SALES';
+      const amount = lastCreatedVoucher.amount || 0;
       
-      console.log('Dashboard data received:', data);
-
-      // Set all data from the single response
-      setStats({
-        todaySales: data.todaySales || 0,
-        todayPurchases: data.todayPurchases || 0,
-        totalCustomers: data.totalCustomers || 0,
-        stockValue: data.stockValue || 0,
-        receivables: data.receivables || 0,
-        payables: data.payables || 0,
-        salesTrend: data.salesTrend || 0,
-        purchaseTrend: data.purchaseTrend || 0,
-        customersTrend: data.customersTrend || 0,
-        stockTrend: data.stockTrend || 0,
-        receivablesTrend: data.receivablesTrend || 0,
-        payablesTrend: data.payablesTrend || 0,
-        todayOrders: data.todayOrders || 0,
-        todayPurchaseOrders: data.todayPurchaseOrders || 0
+      setDashboardData({
+        [isSales ? 'todaySales' : 'todayPurchases']: 
+          (dashboardData[isSales ? 'todaySales' : 'todayPurchases'] || 0) + amount,
+        recentTransactions: [
+          {
+            id: lastCreatedVoucher.id,
+            description: lastCreatedVoucher.narration || `${lastCreatedVoucher.voucher_type} Voucher`,
+            amount: amount,
+            type: isSales ? 'CREDIT' : 'DEBIT',
+            date: lastCreatedVoucher.date,
+            reference: lastCreatedVoucher.voucher_number
+          },
+          ...dashboardData.recentTransactions || []
+        ].slice(0, 10)
       });
 
+      // Update sales data chart
+      const month = new Date(lastCreatedVoucher.date).toLocaleString('default', { month: 'short' });
+      setSalesData(prev => {
+        const existing = prev.find(d => d.name === month);
+        if (existing) {
+          return prev.map(d => 
+            d.name === month 
+              ? { ...d, [isSales ? 'sales' : 'purchases']: (d[isSales ? 'sales' : 'purchases'] || 0) + amount }
+              : d
+          );
+        }
+        return [...prev, { name: month, sales: isSales ? amount : 0, purchases: isSales ? 0 : amount }];
+      });
+
+      clearLastCreatedVoucher();
+    }
+  }, [lastCreatedVoucher]);
+
+  // ✅ Listen for stock updates
+  useEffect(() => {
+    if (lastUpdatedItem) {
+      // Update stock in dashboard
+      const item = stockItems.find(i => i.id === lastUpdatedItem.id);
+      if (item) {
+        const newStockValue = dashboardData.stockValue + 
+          (lastUpdatedItem.current_quantity - item.current_quantity) * item.purchase_price;
+        setDashboardData({ stockValue: newStockValue });
+      }
+      clearLastUpdatedItem();
+    }
+  }, [lastUpdatedItem]);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoadingState(true);
+      setLoading(true);
+
+      const data = await dashboardService.getOverview(currentCompany.id);
+      
+      setDashboardData(data);
       setSalesData(data.salesData || []);
       setTransactions(data.recentTransactions || []);
       setTopCustomers(data.topCustomers || []);
       setLowStockItems(data.lowStockItems || []);
 
-      console.log('Dashboard data updated successfully');
-
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError(error.message);
-      toast.error('Failed to load dashboard data: ' + error.message);
+      toast.error('Failed to load dashboard data');
     } finally {
       setLoadingState(false);
       setLoading(false);

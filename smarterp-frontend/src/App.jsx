@@ -1,17 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AppRoutes } from './AppRoutes';
-import { useUIStore } from './store/uiStore';
+import { useMainStore } from './store/mainStore';
+import { useCompanyStore } from './store/companyStore';
+import { useDataSync } from './hooks/useDataSync';
 
 function App() {
-  const { isDarkMode } = useUIStore();
+  const { currentCompany } = useCompanyStore();
+  const { clearLastCreated } = useMainStore();
+  const { refreshAll } = useDataSync(currentCompany?.id);
 
-  React.useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+  // Auto-refresh when company changes
+  useEffect(() => {
+    if (currentCompany) {
+      refreshAll();
     }
-  }, [isDarkMode]);
+  }, [currentCompany]);
+
+  // Clear last created items periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      clearLastCreated();
+    }, 30000); // Clear after 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   return <AppRoutes />;
 }

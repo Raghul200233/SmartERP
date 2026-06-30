@@ -3,6 +3,7 @@ import { X, Loader2 } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { useLedgerStore } from '../../store/ledgerStore';
 import { ledgerService, accountGroupService } from '../../services/ledger.service';
+import { eventBus } from '../../utils/eventBus';
 import toast from 'react-hot-toast';
 
 const LEDGER_TYPES = [
@@ -109,7 +110,8 @@ export const LedgerForm = ({ ledger, onClose, onSuccess }) => {
         await ledgerService.update(currentCompany.id, ledger.id, data);
         toast.success('Ledger updated successfully');
       } else {
-        await ledgerService.create(currentCompany.id, data);
+        const response = await ledgerService.create(currentCompany.id, data);
+        eventBus.emitLedgerCreated(response);
         toast.success('Ledger created successfully');
       }
 

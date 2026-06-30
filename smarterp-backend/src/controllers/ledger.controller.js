@@ -1,3 +1,4 @@
+const { supabase } = require('../config/database');
 const LedgerModel = require('../models/Ledger');
 const AccountGroupModel = require('../models/AccountGroup');
 const AuditLog = require('../models/AuditLog');

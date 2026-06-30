@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { useStockStore } from '../../store/stockStore';
+import { eventBus } from '../../utils/eventBus';
 import { stockItemService, stockGroupService, unitService } from '../../services/stock.service';
 import toast from 'react-hot-toast';
 
@@ -112,7 +113,11 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
         await stockItemService.update(currentCompany.id, item.id, data);
         toast.success('Stock item updated successfully');
       } else {
-        await stockItemService.create(currentCompany.id, data);
+          const response = await stockItemService.create(currentCompany.id, data);
+          eventBus.emitStockUpdated({
+          ...response,
+          current_quantity: data.opening_quantity || 0
+        });
         toast.success('Stock item created successfully');
       }
 

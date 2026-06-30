@@ -3,8 +3,11 @@ import { VoucherList } from '../components/voucher/VoucherList';
 import { PurchaseVoucher } from '../components/voucher/PurchaseVoucher';
 import { SalesVoucher } from '../components/voucher/SalesVoucher';
 import { VoucherDetail } from '../components/voucher/VoucherDetail';
+import { useMainStore } from '../store/mainStore';
 
 const VoucherPage = () => {
+  const { vouchers } = useMainStore();
+  const voucherList = vouchers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState(null);

@@ -2,12 +2,9 @@ import api from './api';
 
 export const voucherService = {
   async getAll(companyId, filters = {}) {
-    const params = new URLSearchParams({
-      companyId,
-      ...filters
-    });
+    const params = new URLSearchParams({ companyId, ...filters });
     const response = await api.get(`/vouchers?${params}`);
-    return response.data.data;
+    return response.data;
   },
 
   async getById(companyId, id) {
@@ -15,23 +12,9 @@ export const voucherService = {
     return response.data.data;
   },
 
-async create(companyId, data) {
-        // Ensure ledger_id is valid
-        const voucherData = {
-            ...data,
-        };
-        const response = await api.post(`/vouchers?companyId=${companyId}`, voucherData);
-        return response.data.data;
-    },
-
-  async update(companyId, id, data) {
-    const response = await api.put(`/vouchers/${id}?companyId=${companyId}`, data);
+  async create(companyId, data) {
+    const response = await api.post(`/vouchers?companyId=${companyId}`, data);
     return response.data.data;
-  },
-
-  async delete(companyId, id) {
-    const response = await api.delete(`/vouchers/${id}?companyId=${companyId}`);
-    return response.data;
   },
 
   async getTypes(companyId) {
@@ -40,11 +23,7 @@ async create(companyId, data) {
   },
 
   async getStats(companyId, startDate, endDate) {
-    const params = new URLSearchParams({
-      companyId,
-      ...(startDate && { startDate }),
-      ...(endDate && { endDate })
-    });
+    const params = new URLSearchParams({ companyId, startDate, endDate });
     const response = await api.get(`/vouchers/stats?${params}`);
     return response.data.data;
   }
