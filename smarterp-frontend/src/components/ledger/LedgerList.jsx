@@ -277,9 +277,6 @@ export const LedgerList = ({ onEdit, onView, onDelete, onAdd }) => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Group
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Opening Balance
-                </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Status
                 </th>
@@ -317,7 +314,6 @@ export const LedgerList = ({ onEdit, onView, onDelete, onAdd }) => {
                       {ledger.account_groups?.name || '-'}
                     </td>
                     <td className="px-4 py-3 text-right text-sm font-medium text-gray-900 dark:text-white">
-                      ₹{ledger.opening_balance?.toLocaleString() || '0'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

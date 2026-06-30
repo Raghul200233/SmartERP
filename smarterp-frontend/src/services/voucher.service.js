@@ -2,9 +2,18 @@ import api from './api';
 
 export const voucherService = {
   async getAll(companyId, filters = {}) {
-    const params = new URLSearchParams({ companyId, ...filters });
-    const response = await api.get(`/vouchers?${params}`);
-    return response.data;
+    try {
+      const params = new URLSearchParams({
+        companyId,
+        ...filters
+      });
+      const response = await api.get(`/vouchers?${params}`);
+      console.log('Voucher API response:', response.data); // Debug log
+      return response.data; // Should return { data: [], count: 0 }
+    } catch (error) {
+      console.error('Error fetching vouchers:', error);
+      return { data: [], count: 0 };
+    }
   },
 
   async getById(companyId, id) {

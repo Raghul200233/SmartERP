@@ -61,7 +61,7 @@ export const SupplierList = ({ onEdit, onView, onAdd }) => {
     }).format(amount || 0);
   };
 
-  const filteredSuppliers = suppliers || [];
+  const filteredSuppliers = Array.isArray(suppliers) ? suppliers : [];
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -162,7 +162,7 @@ export const SupplierList = ({ onEdit, onView, onAdd }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredSuppliers.map((supplier) => (
+              {Array.isArray(filteredSuppliers) && filteredSuppliers.map((supplier) => (
                 <tr key={supplier.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">

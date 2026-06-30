@@ -32,9 +32,9 @@ const VOUCHER_TYPE_COLORS = {
   DEBIT_NOTE: 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
 };
 
-export const VoucherList = ({ onEdit, onView, onAdd }) => {
+export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, onEdit, onView, onAdd }) => {
   const { currentCompany } = useCompanyStore();
-  const { vouchers, setVouchers, isLoading, setLoading } = useVoucherStore();
+  const { vouchers: storeVouchers, setVouchers, isLoading: storeLoading } = useVoucherStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -42,6 +42,12 @@ export const VoucherList = ({ onEdit, onView, onAdd }) => {
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [voucherTypes, setVoucherTypes] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Use prop vouchers if provided, otherwise use store
+  const vouchers = propVouchers || storeVouchers || [];
+  const isLoading = propLoading !== undefined ? propLoading : storeLoading;
+
 
   useEffect(() => {
     if (currentCompany) {
@@ -117,8 +123,7 @@ export const VoucherList = ({ onEdit, onView, onAdd }) => {
     }).format(amount);
   };
 
-  const filteredVouchers = vouchers || [];
-  const safeVouchers = Array.isArray(filteredVouchers) ? filteredVouchers : [];
+   const filteredVouchers = Array.isArray(vouchers) ? vouchers : [];
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -330,7 +335,7 @@ export const VoucherList = ({ onEdit, onView, onAdd }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {safeVouchers.map((voucher) => {
+                {Array.isArray(filteredVouchers) && filteredVouchers.map((voucher) => {
                 const Icon = VOUCHER_TYPE_ICONS[voucher.voucher_type] || FileText;
                 const colorClass = VOUCHER_TYPE_COLORS[voucher.voucher_type] || 'bg-gray-100 text-gray-600';
                 const statusColor = getStatusColor(voucher.status);

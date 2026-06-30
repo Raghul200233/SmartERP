@@ -7,7 +7,7 @@ export const useVoucherStore = create((set, get) => ({
   stats: null,
   lastCreatedVoucher: null,
 
-  setVouchers: (vouchers) => set({ vouchers }),
+  setVouchers: (vouchers) => set({ vouchers: Array.isArray(vouchers) ? vouchers : [] }),
   setCurrentVoucher: (voucher) => set({ currentVoucher: voucher }),
   setStats: (stats) => set({ stats }),
   setLoading: (isLoading) => set({ isLoading }),
@@ -21,10 +21,5 @@ export const useVoucherStore = create((set, get) => ({
   },
 
   clearLastCreatedVoucher: () => set({ lastCreatedVoucher: null }),
-
-  updateStats: (newStats) => {
-    set((state) => ({
-      stats: { ...state.stats, ...newStats }
-    }));
-  }
+  clearVouchers: () => set({ vouchers: [], currentVoucher: null, stats: null })
 }));

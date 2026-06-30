@@ -18,7 +18,6 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
     purchase_price: 0,
     selling_price: 0,
     gst_percentage: 0,
-    opening_quantity: 0,
     reorder_level: 0
   });
   const [stockGroups, setStockGroups] = useState([]);
@@ -41,7 +40,6 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
         purchase_price: item.purchase_price || 0,
         selling_price: item.selling_price || 0,
         gst_percentage: item.gst_percentage || 0,
-        opening_quantity: item.opening_quantity || 0,
         reorder_level: item.reorder_level || 0
       });
     }

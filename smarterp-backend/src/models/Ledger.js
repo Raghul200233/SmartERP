@@ -39,7 +39,6 @@ class LedgerModel {
                 gst_number: ledgerData.gst_number || null,
                 mobile: ledgerData.mobile || null,
                 address: ledgerData.address || null,
-                opening_balance: ledgerData.opening_balance || 0,
                 credit_limit: ledgerData.credit_limit || 0,
                 status: ledgerData.status || 'ACTIVE',
                 created_by: userId

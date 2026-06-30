@@ -23,7 +23,6 @@ class SupplierModel {
                 contact_number: supplierData.contact_number || null,
                 address: supplierData.address || null,
                 gst_number: supplierData.gst_number || null,
-                outstanding_dues: supplierData.outstanding_dues || 0,
                 company_id: companyId,
                 created_by: userId
             };

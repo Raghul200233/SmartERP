@@ -34,7 +34,6 @@ export const LedgerForm = ({ ledger, onClose, onSuccess }) => {
     gst_number: '',
     mobile: '',
     address: '',
-    opening_balance: 0,
     credit_limit: 0,
     status: 'ACTIVE'
   });
@@ -54,7 +53,6 @@ export const LedgerForm = ({ ledger, onClose, onSuccess }) => {
         gst_number: ledger.gst_number || '',
         mobile: ledger.mobile || '',
         address: ledger.address || '',
-        opening_balance: ledger.opening_balance || 0,
         credit_limit: ledger.credit_limit || 0,
         status: ledger.status || 'ACTIVE'
       });
@@ -249,25 +247,6 @@ export const LedgerForm = ({ ledger, onClose, onSuccess }) => {
                 placeholder="22AAAAA0000A1Z5"
               />
               {errors.gst_number && <p className="mt-1 text-sm text-red-500">{errors.gst_number}</p>}
-            </div>
-
-            {/* Opening Balance */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Opening Balance
-              </label>
-              <input
-                type="number"
-                name="opening_balance"
-                value={formData.opening_balance}
-                onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  errors.opening_balance ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="0"
-                step="0.01"
-              />
-              {errors.opening_balance && <p className="mt-1 text-sm text-red-500">{errors.opening_balance}</p>}
             </div>
 
             {/* Credit Limit */}
