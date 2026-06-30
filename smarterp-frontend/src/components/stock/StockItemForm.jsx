@@ -17,8 +17,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
     unit_id: '',
     purchase_price: 0,
     selling_price: 0,
-    gst_percentage: 0,
-    reorder_level: 0
+    gst_percentage: 0
   });
   const [stockGroups, setStockGroups] = useState([]);
   const [units, setUnits] = useState([]);
@@ -39,8 +38,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
         unit_id: item.unit_id || '',
         purchase_price: item.purchase_price || 0,
         selling_price: item.selling_price || 0,
-        gst_percentage: item.gst_percentage || 0,
-        reorder_level: item.reorder_level || 0
+        gst_percentage: item.gst_percentage || 0
       });
     }
   }, [item]);
@@ -83,9 +81,6 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
     if (formData.opening_quantity < 0) {
       newErrors.opening_quantity = 'Opening quantity cannot be negative';
     }
-    if (formData.reorder_level < 0) {
-      newErrors.reorder_level = 'Reorder level cannot be negative';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -103,8 +98,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
         purchase_price: parseFloat(formData.purchase_price) || 0,
         selling_price: parseFloat(formData.selling_price) || 0,
         gst_percentage: parseFloat(formData.gst_percentage) || 0,
-        opening_quantity: parseFloat(formData.opening_quantity) || 0,
-        reorder_level: parseFloat(formData.reorder_level) || 0
+        opening_quantity: parseFloat(formData.opening_quantity) || 0
       };
 
       if (isEdit) {
@@ -200,18 +194,18 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Stock Group
               </label>
-              <select
-                value={formData.stock_group_id}
-                onChange={(e) => setFormData({ ...formData, stock_group_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Select Group</option>
-                    {Array.isArray(stockGroups) && stockGroups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
+<select
+    value={formData.stock_group_id}
+    onChange={(e) => setFormData({ ...formData, stock_group_id: e.target.value })}
+    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+>
+    <option value="">Select Group</option>
+    {Array.isArray(stockGroups) && stockGroups.map((group) => (
+        <option key={group.id} value={group.id}>
+            {group.name}
+        </option>
+    ))}
+</select>
             </div>
 
             {/* Unit */}
@@ -219,18 +213,18 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Unit
               </label>
-              <select
-                value={formData.unit_id}
-                onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              >
-                <option value="">Select Unit</option>
-                {Array.isArray(units) && units.map((unit) => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name} ({unit.symbol})
-                  </option>
-                ))}
-              </select>
+<select
+    value={formData.unit_id}
+    onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
+    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+>
+    <option value="">Select Unit</option>
+    {Array.isArray(units) && units.map((unit) => (
+        <option key={unit.id} value={unit.id}>
+            {unit.name} ({unit.symbol})
+        </option>
+    ))}
+</select>
             </div>
 
             {/* Purchase Price */}
@@ -308,25 +302,6 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
                 min="0"
               />
               {errors.opening_quantity && <p className="mt-1 text-sm text-red-500">{errors.opening_quantity}</p>}
-            </div>
-
-            {/* Reorder Level */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Reorder Level
-              </label>
-              <input
-                type="number"
-                value={formData.reorder_level}
-                onChange={(e) => setFormData({ ...formData, reorder_level: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  errors.reorder_level ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="0"
-                step="1"
-                min="0"
-              />
-              {errors.reorder_level && <p className="mt-1 text-sm text-red-500">{errors.reorder_level}</p>}
             </div>
           </div>
 

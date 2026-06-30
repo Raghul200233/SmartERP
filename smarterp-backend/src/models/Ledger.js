@@ -250,7 +250,6 @@ class LedgerModel {
             if (entriesError) throw entriesError;
 
             // Calculate running balance
-            let balance = ledger.opening_balance || 0;
             const statement = entries.map(entry => {
                 const amount = entry.amount || 0;
                 let debit = 0;
@@ -279,8 +278,7 @@ class LedgerModel {
                 ledger: {
                     id: ledger.id,
                     name: ledger.name,
-                    type: ledger.ledger_type,
-                    opening_balance: ledger.opening_balance || 0
+                    type: ledger.ledger_type
                 },
                 statement,
                 closing_balance: balance

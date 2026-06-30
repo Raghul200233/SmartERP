@@ -83,9 +83,6 @@ export const LedgerForm = ({ ledger, onClose, onSuccess }) => {
     if (formData.gst_number && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(formData.gst_number)) {
       newErrors.gst_number = 'Invalid GST number format';
     }
-    if (formData.opening_balance < 0) {
-      newErrors.opening_balance = 'Opening balance cannot be negative';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -100,7 +97,6 @@ export const LedgerForm = ({ ledger, onClose, onSuccess }) => {
 
       const data = {
         ...formData,
-        opening_balance: parseFloat(formData.opening_balance) || 0,
         credit_limit: parseFloat(formData.credit_limit) || 0
       };
 

@@ -128,13 +128,14 @@ const handleSubmit = async (e) => {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="">None (Top Level)</option>
-              {stockGroups
-                .filter(g => g.id !== group?.id)
-                .map(g => (
-                  <option key={g.id} value={g.id}>
-                    {g.name}
-                  </option>
-                ))}
+{Array.isArray(stockGroups) && stockGroups
+    .filter(g => g.id !== group?.id)
+    .map(g => (
+        <option key={g.id} value={g.id}>
+            {g.name}
+        </option>
+    ))
+}
             </select>
           </div>
 

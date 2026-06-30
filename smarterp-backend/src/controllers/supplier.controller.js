@@ -53,35 +53,37 @@ class SupplierController {
 
     // Get all suppliers with filters
     async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
-            const filters = {
-                search: req.query.search
-            };
+    try {
+        const { companyId } = req.query;
+        const filters = {
+            search: req.query.search
+        };
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const suppliers = await SupplierModel.findAll(companyId, filters);
-
-            res.json({
-                success: true,
-                data: suppliers,
-                count: suppliers.length
-            });
-        } catch (error) {
-            logger.error('Get suppliers error:', error);
-            res.status(500).json({
+        if (!companyId) {
+            return res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to fetch suppliers',
-                data: []
+                message: 'Company ID is required'
             });
         }
+
+        const suppliers = await SupplierModel.findAll(companyId, filters);
+
+        console.log('Found suppliers:', suppliers); // Debug log
+
+        res.json({
+            success: true,
+            data: suppliers || [],
+            count: suppliers?.length || 0
+        });
+    } catch (error) {
+        logger.error('Get suppliers error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch suppliers',
+            data: []
+        });
     }
+}
 
     // Get supplier by ID
     async getById(req, res, next) {

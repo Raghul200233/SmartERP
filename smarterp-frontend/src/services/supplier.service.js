@@ -9,6 +9,7 @@ export const supplierService = {
                 ...filters
             });
             const response = await api.get(`/suppliers?${params}`);
+            console.log('Supplier API response:', response.data); // Debug log
             return response.data; // Make sure this returns { data: [], count: 0 }
         } catch (error) {
             console.error('Error fetching suppliers:', error);

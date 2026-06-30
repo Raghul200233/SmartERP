@@ -203,17 +203,17 @@ class CompanyModel {
         groups.forEach(g => groupMap[g.name] = g.id);
 
         const defaultLedgers = [
-            { name: 'Cash', group: 'Cash In Hand', type: 'CASH', opening_balance: 0 },
-            { name: 'Bank Account', group: 'Bank Accounts', type: 'BANK', opening_balance: 0 },
-            { name: 'Capital Account', group: 'Capital Account', type: 'CAPITAL', opening_balance: 0 },
-            { name: 'Sales', group: 'Direct Income', type: 'INCOME', opening_balance: 0 },
-            { name: 'Purchases', group: 'Direct Expenses', type: 'EXPENSE', opening_balance: 0 },
-            { name: 'Salary', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
-            { name: 'Rent', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
-            { name: 'Electricity', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
-            { name: 'Telephone', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
-            { name: 'Travel', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 },
-            { name: 'Office Expenses', group: 'Indirect Expenses', type: 'EXPENSE', opening_balance: 0 }
+            { name: 'Cash', group: 'Cash In Hand', type: 'CASH'},
+            { name: 'Bank Account', group: 'Bank Accounts', type: 'BANK'},
+            { name: 'Capital Account', group: 'Capital Account', type: 'CAPITAL' },
+            { name: 'Sales', group: 'Direct Income', type: 'INCOME' },
+            { name: 'Purchases', group: 'Direct Expenses', type: 'EXPENSE'},
+            { name: 'Salary', group: 'Indirect Expenses', type: 'EXPENSE' },
+            { name: 'Rent', group: 'Indirect Expenses', type: 'EXPENSE' },
+            { name: 'Electricity', group: 'Indirect Expenses', type: 'EXPENSE' },
+            { name: 'Telephone', group: 'Indirect Expenses', type: 'EXPENSE'},
+            { name: 'Travel', group: 'Indirect Expenses', type: 'EXPENSE' },
+            { name: 'Office Expenses', group: 'Indirect Expenses', type: 'EXPENSE' }
         ];
 
         for (const ledger of defaultLedgers) {
@@ -224,7 +224,6 @@ class CompanyModel {
                     ledger_type: ledger.type,
                     group_id: groupMap[ledger.group],
                     company_id: companyId,
-                    opening_balance: ledger.opening_balance || 0,
                     status: 'ACTIVE',
                     created_by: userId
                 });

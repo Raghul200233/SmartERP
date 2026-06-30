@@ -86,9 +86,6 @@ const handleDelete = async (item) => {
   };
 
   const getStockStatus = (item) => {
-    if (!item.reorder_level || item.current_quantity > item.reorder_level) {
-      return { label: 'In Stock', color: 'text-green-500', icon: TrendingUp };
-    }
     if (item.current_quantity <= 0) {
       return { label: 'Out of Stock', color: 'text-red-500', icon: TrendingDown };
     }
@@ -343,9 +340,6 @@ const handleDelete = async (item) => {
 
 // Helper function at the bottom
 const getStockStatus = (item) => {
-  if (!item.reorder_level || item.current_quantity > item.reorder_level) {
-    return { label: 'In Stock', color: 'text-green-500', icon: TrendingUp };
-  }
   if (item.current_quantity <= 0) {
     return { label: 'Out of Stock', color: 'text-red-500', icon: TrendingDown };
   }

@@ -55,19 +55,23 @@ export const StockGroupList = ({ onEdit, onAdd, onView }) => {
     setExpandedGroups(newExpanded);
   };
 
-  const filteredGroups = stockGroups.filter(group =>
-    group.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+const filteredGroups = Array.isArray(stockGroups) 
+    ? stockGroups.filter(group =>
+        group.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    : [];
 
   // Build tree structure
-  const buildTree = (groups, parentId = null) => {
-    return groups
-      .filter(g => g.parent_id === parentId)
-      .map(g => ({
-        ...g,
-        children: buildTree(groups, g.id)
-      }));
-  };
+const buildTree = (groups, parentId = null) => {
+    // Ensure groups is an array
+    const groupsArray = Array.isArray(groups) ? groups : [];
+    return groupsArray
+        .filter(g => g.parent_id === parentId)
+        .map(g => ({
+            ...g,
+            children: buildTree(groupsArray, g.id)
+        }));
+};
 
   const treeData = buildTree(filteredGroups);
 

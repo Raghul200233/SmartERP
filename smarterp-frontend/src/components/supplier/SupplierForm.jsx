@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Truck, Phone, Building2, CreditCard ,DollarSign} from 'lucide-react';
+import { X, Loader2, Truck, Phone, Building2, CreditCard, DollarSign } from 'lucide-react';
 import { useCompanyStore } from '../../store/companyStore';
 import { useSupplierStore } from '../../store/supplierStore';
 import { supplierService } from '../../services/supplier.service';
-import { eventBus } from '../../utils/eventBus';
 import toast from 'react-hot-toast';
 
 export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
@@ -13,8 +12,7 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
     name: '',
     contact_number: '',
     address: '',
-    gst_number: '',
-    outstanding_dues: 0
+    gst_number: ''
   });
   const [errors, setErrors] = useState({});
   const [loading, setLocalLoading] = useState(false);
@@ -28,7 +26,6 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
         contact_number: supplier.contact_number || '',
         address: supplier.address || '',
         gst_number: supplier.gst_number || '',
-        outstanding_dues: supplier.outstanding_dues || 0
       });
     }
   }, [supplier]);
@@ -52,21 +49,22 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
     e.preventDefault();
     if (!validate()) return;
 
+    const data = {
+      name: formData.name.trim(),
+      contact_number: formData.contact_number.trim(),
+      address: formData.address.trim(),
+      gst_number: formData.gst_number.trim()
+    };
+
     try {
       setLocalLoading(true);
       setLoading(true);
-
-      const data = {
-        ...formData,
-        outstanding_dues: parseFloat(formData.outstanding_dues) || 0
-      };
 
       if (isEdit) {
         await supplierService.update(currentCompany.id, supplier.id, data);
         toast.success('Supplier updated successfully');
       } else {
-        const response = await supplierService.create(currentCompany.id, data);
-        eventBus.emitSupplierCreated(response);
+        await supplierService.create(currentCompany.id, data);
         toast.success('Supplier created successfully');
       }
 
@@ -78,6 +76,17 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
     } finally {
       setLocalLoading(false);
       setLoading(false);
+    }
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
@@ -107,8 +116,9 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
                 <Truck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
+                  name="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={handleChange}
                   className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                     errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
@@ -127,8 +137,9 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="tel"
+                  name="contact_number"
                   value={formData.contact_number}
-                  onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                  onChange={handleChange}
                   className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                     errors.contact_number ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
@@ -147,8 +158,9 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
+                  name="gst_number"
                   value={formData.gst_number}
-                  onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
+                  onChange={handleChange}
                   className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                     errors.gst_number ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                   }`}
@@ -156,25 +168,6 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
                 />
               </div>
               {errors.gst_number && <p className="mt-1 text-sm text-red-500">{errors.gst_number}</p>}
-            </div>
-
-            {/* Outstanding Dues */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Outstanding Dues (₹)
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="number"
-                  value={formData.outstanding_dues}
-                  onChange={(e) => setFormData({ ...formData, outstanding_dues: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                />
-              </div>
             </div>
 
             {/* Address */}
@@ -185,8 +178,9 @@ export const SupplierForm = ({ supplier, onClose, onSuccess }) => {
               <div className="relative">
                 <Building2 className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <textarea
+                  name="address"
                   value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  onChange={handleChange}
                   rows="3"
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   placeholder="Enter supplier address"

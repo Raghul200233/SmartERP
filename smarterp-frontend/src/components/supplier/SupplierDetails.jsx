@@ -143,12 +143,6 @@ export const SupplierDetails = ({ supplier, onClose }) => {
               <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg">
                 <DollarSign className="w-4 h-4 text-red-600 dark:text-red-400" />
               </div>
-              <div>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Outstanding Dues</p>
-                <p className={`font-medium ${supplier.outstanding_dues > 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-                  {formatCurrency(supplier.outstanding_dues)}
-                </p>
-              </div>
             </div>
           </div>
         </div>

@@ -155,9 +155,6 @@ export const LedgerStatement = ({ ledger, onClose }) => {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {statement.ledger?.name}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Opening Balance: ₹{statement.ledger?.opening_balance?.toLocaleString() || '0'}
-              </p>
             </div>
 
             {/* Table */}

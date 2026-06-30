@@ -241,7 +241,6 @@ class VoucherModel {
                     group_id: groupId,
                     company_id: companyId,
                     status: 'ACTIVE',
-                    opening_balance: 0,
                     created_by: userId
                 })
                 .select()

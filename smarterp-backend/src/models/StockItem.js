@@ -28,7 +28,6 @@ class StockItemModel {
                 purchase_price: itemData.purchase_price || 0,
                 selling_price: itemData.selling_price || 0,
                 gst_percentage: itemData.gst_percentage || 0, 
-                reorder_level: itemData.reorder_level || 0,
                 current_quantity: itemData.opening_quantity || 0,
                 company_id: companyId,
                 created_by: userId
@@ -224,7 +223,6 @@ class StockItemModel {
                     )
                 `)
                 .eq('company_id', companyId)
-                .lt('current_quantity', supabase.raw('reorder_level'))
                 .is('deleted_at', null)
                 .order('current_quantity', { ascending: true });
 

@@ -96,7 +96,6 @@ class CustomerModel {
                     ledger_type: 'CUSTOMER',
                     group_id: groupId,
                     company_id: companyId,
-                    opening_balance: 0,
                     status: 'ACTIVE',
                     created_by: userId
                 });

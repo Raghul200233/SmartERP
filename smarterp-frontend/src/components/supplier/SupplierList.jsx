@@ -9,11 +9,13 @@ import { useSupplierStore } from '../../store/supplierStore';
 import { supplierService } from '../../services/supplier.service';
 import toast from 'react-hot-toast';
 
-export const SupplierList = ({ onEdit, onView, onAdd }) => {
+export const SupplierList = ({ suppliers: propSuppliers, onEdit, onView, onAdd }) => {
+  const { suppliers: storeSuppliers, setSuppliers, isLoading: storeLoading } = useSupplierStore();
   const { currentCompany } = useCompanyStore();
-  const { suppliers, setSuppliers, isLoading, setLoading } = useSupplierStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const suppliers = propSuppliers || storeSuppliers || [];
+  const [isLoading, setLoading] = useState(false);
 
   useEffect(() => {
     if (currentCompany) {
@@ -154,9 +156,6 @@ export const SupplierList = ({ onEdit, onView, onAdd }) => {
                   GST
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Outstanding
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -190,15 +189,6 @@ export const SupplierList = ({ onEdit, onView, onAdd }) => {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                     {supplier.gst_number || 'N/A'}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className={`font-medium ${
-                      supplier.outstanding_dues > 0 
-                        ? 'text-red-600 dark:text-red-400' 
-                        : 'text-green-600 dark:text-green-400'
-                    }`}>
-                      {formatCurrency(supplier.outstanding_dues)}
-                    </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-2">

@@ -5,14 +5,17 @@ import { SupplierDetails } from '../components/supplier/SupplierDetails';
 import { useMainStore } from '../store/mainStore';
 import { useSupplierStore } from '../store/supplierStore';
 import { supplierService } from '../services/supplier.service';
+import { useCompanyStore } from '../store/companyStore';
 
 const SupplierPage = () => {
-  const { suppliers , currentCompany} = useMainStore();
+  const { suppliers } = useMainStore();
+  const { currentCompany } = useCompanyStore();
   const supplierList = suppliers.list || [];
   const [showForm, setShowForm] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [editMode, setEditMode] = useState(false);
+  const { setSuppliers, setLoading } = useSupplierStore();
 
   useEffect(() => {
   if (currentCompany) {

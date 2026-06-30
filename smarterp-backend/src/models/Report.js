@@ -44,8 +44,6 @@ class ReportModel {
             const equityLedgers = [];
 
             for (const ledger of ledgers) {
-                // Calculate balance from vouchers
-                let balance = ledger.opening_balance || 0;
                 
                 // For each voucher, if this ledger is involved, update balance
                 for (const voucher of vouchers) {
@@ -219,14 +217,6 @@ class ReportModel {
             for (const ledger of ledgers) {
                 let debit = 0;
                 let credit = 0;
-
-                // Opening balance
-                const opening = ledger.opening_balance || 0;
-                if (opening > 0) {
-                    debit += opening;
-                } else if (opening < 0) {
-                    credit += Math.abs(opening);
-                }
 
                 // Voucher transactions
                 for (const voucher of vouchers) {

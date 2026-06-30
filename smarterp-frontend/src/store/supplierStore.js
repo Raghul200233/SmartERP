@@ -7,7 +7,7 @@ export const useSupplierStore = create((set, get) => ({
   purchaseHistory: [],
   paymentHistory: [],
 
-  setSuppliers: (suppliers) => set({ suppliers }),
+  setSuppliers: (suppliers) => set({ suppliers: Array.isArray(suppliers) ? suppliers : [] }),
   setCurrentSupplier: (supplier) => set({ currentSupplier: supplier }),
   setPurchaseHistory: (history) => set({ purchaseHistory: history }),
   setPaymentHistory: (history) => set({ paymentHistory: history }),
