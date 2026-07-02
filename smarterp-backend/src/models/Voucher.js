@@ -70,17 +70,20 @@ class VoucherModel {
 
             // Create voucher
             const voucher = {
-                voucher_type: voucherData.voucher_type,
-                voucher_number: voucherNumber,
-                date: voucherData.date || new Date().toISOString().split('T')[0],
-                ledger_id: ledgerId,
-                company_id: companyId,
-                amount: grandTotal,
-                narration: voucherData.narration || null,
-                reference_number: voucherData.reference_number || null,
-                payment_type: paymentType,
-                status: voucherData.status || 'POSTED',
-                created_by: userId
+            voucher_type: voucherData.voucher_type,
+            voucher_number: voucherNumber,
+            date: voucherData.date || new Date().toISOString().split('T')[0],
+            ledger_id: ledgerId || null,
+            company_id: companyId,
+            amount: voucherData.amount || 0,
+            narration: voucherData.narration || null,
+            reference_number: voucherData.reference_number || null,
+            payment_type: voucherData.payment_type || 'CASH',
+            payment_status: voucherData.payment_status || 'PENDING',
+            payment_method: voucherData.payment_method || 'CASH',
+            paid_amount: 0,
+            status: voucherData.status || 'POSTED',
+            created_by: userId
             };
 
             const { data, error } = await supabase
@@ -254,6 +257,91 @@ class VoucherModel {
         }
     }
 
+    async markAsPaid(voucherId, companyId, paymentMethod, amount) {
+    try {
+        const { data, error } = await supabase
+            .from('vouchers')
+            .update({
+                payment_status: 'PAID',
+                paid_at: new Date().toISOString(),
+                payment_method: paymentMethod,
+                paid_amount: amount || supabase.raw('amount')
+            })
+            .eq('id', voucherId)
+            .eq('company_id', companyId)
+            .select()
+            .single();
+
+        if (error) throw error;
+        return data;
+    } catch (error) {
+        logger.error('Error marking voucher as paid:', error);
+        throw error;
+    }
+}
+
+async getLedgerStatementWithPayments(ledgerId, companyId) {
+    try {
+        // Get all vouchers for this ledger (purchases and payments)
+        const { data, error } = await supabase
+            .from('vouchers')
+            .select(`
+                *,
+                ledgers!inner (
+                    id,
+                    name,
+                    ledger_type
+                )
+            `)
+            .eq('ledger_id', ledgerId)
+            .eq('company_id', companyId)
+            .in('voucher_type', ['PURCHASE', 'PAYMENT'])
+            .is('deleted_at', null)
+            .order('date', { ascending: true });
+
+        if (error) throw error;
+
+        // Calculate running balance
+        let balance = 0;
+        const transactions = data.map(voucher => {
+            const amount = voucher.amount || 0;
+            let debit = 0;
+            let credit = 0;
+            
+            if (voucher.voucher_type === 'PURCHASE') {
+                debit = amount;
+                balance += amount;
+            } else if (voucher.voucher_type === 'PAYMENT') {
+                credit = amount;
+                balance -= amount;
+            }
+
+            return {
+                ...voucher,
+                debit,
+                credit,
+                running_balance: balance
+            };
+        });
+
+        // Calculate total dues
+        const totalDues = transactions
+            .filter(t => t.voucher_type === 'PURCHASE' && t.payment_status === 'PENDING')
+            .reduce((sum, t) => sum + t.amount, 0);
+
+        return {
+            transactions,
+            totalDues,
+            totalPaid: transactions
+                .filter(t => t.payment_status === 'PAID')
+                .reduce((sum, t) => sum + t.paid_amount, 0)
+        };
+    } catch (error) {
+        logger.error('Error getting ledger statement with payments:', error);
+        throw error;
+    }
+}
+
     async generateVoucherNumber(voucherType, companyId) {
         const prefix = {
             'PURCHASE': 'PUR',
@@ -282,52 +370,96 @@ class VoucherModel {
         return `${prefix}-${String(newNumber).padStart(6, '0')}`;
     }
 
-    async findAll(companyId, filters = {}) {
-        try {
-            let query = supabase
-                .from('vouchers')
-                .select(`
-                    *,
-                    ledgers!inner (
-                        id,
-                        name,
-                        ledger_type
-                    )
-                `)
-                .eq('company_id', companyId)
-                .is('deleted_at', null);
+async findAll(companyId, filters = {}) {
+    try {
+        let query = supabase
+            .from('vouchers')
+            .select(`
+                *,
+                ledgers!inner (
+                    id,
+                    name,
+                    ledger_type
+                )
+            `)
+            .eq('company_id', companyId)
+            .is('deleted_at', null);
 
-            if (filters.voucher_type) {
-                query = query.eq('voucher_type', filters.voucher_type);
-            }
+        if (filters.voucher_type) {
+            query = query.eq('voucher_type', filters.voucher_type);
+        }
 
-            if (filters.status) {
-                query = query.eq('status', filters.status);
-            }
+        if (filters.status) {
+            query = query.eq('status', filters.status);
+        }
 
-            if (filters.start_date) {
-                query = query.gte('date', filters.start_date);
-            }
+        if (filters.payment_type) {
+            query = query.eq('payment_type', filters.payment_type);
+        }
 
-            if (filters.end_date) {
-                query = query.lte('date', filters.end_date);
-            }
+        if (filters.start_date) {
+            query = query.gte('date', filters.start_date);
+        }
 
-            query = query.order('created_at', { ascending: false });
+        if (filters.end_date) {
+            query = query.lte('date', filters.end_date);
+        }
 
-            const { data, error } = await query;
+        query = query.order('created_at', { ascending: false });
 
-            if (error) {
-                console.error('Supabase error in findAll:', error);
-                throw error;
-            }
-            
-            return data || [];
-        } catch (error) {
-            console.error('Error finding vouchers:', error);
+        const { data, error } = await query;
+
+        if (error) {
+            console.error('Supabase error in findAll:', error);
             throw error;
         }
+        
+        return data || [];
+    } catch (error) {
+        console.error('Error finding vouchers:', error);
+        throw error;
     }
+}
+
+async getPaymentStats(companyId, startDate, endDate) {
+    try {
+        const { data, error } = await supabase
+            .from('vouchers')
+            .select('payment_type, amount')
+            .eq('voucher_type', 'SALES')
+            .eq('company_id', companyId)
+            .is('deleted_at', null)
+            .gte('date', startDate)
+            .lte('date', endDate);
+
+        if (error) throw error;
+
+        const stats = {
+            cash: 0,
+            card: 0,
+            upi: 0,
+            total: 0,
+            count: 0
+        };
+
+        data?.forEach(voucher => {
+            const type = voucher.payment_type?.toLowerCase() || 'cash';
+            const amount = voucher.amount || 0;
+            
+            if (type === 'cash') stats.cash += amount;
+            else if (type === 'card') stats.card += amount;
+            else if (type === 'upi') stats.upi += amount;
+            
+            stats.total += amount;
+            stats.count++;
+        });
+
+        return stats;
+    } catch (error) {
+        logger.error('Error getting payment stats:', error);
+        throw error;
+    }
+}
 
     async findById(id, companyId) {
         try {

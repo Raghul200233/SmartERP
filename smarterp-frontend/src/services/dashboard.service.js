@@ -99,6 +99,11 @@ export const dashboardService = {
     }));
   },
 
+  async getTodaySales(companyId) {
+    const response = await api.get(`/dashboard/today-sales?companyId=${companyId}`);
+    return response.data.data;
+},
+
   async getRecentTransactions(companyId, limit = 10) {
     try {
       const response = await api.get(`/dashboard/overview?companyId=${companyId}`);

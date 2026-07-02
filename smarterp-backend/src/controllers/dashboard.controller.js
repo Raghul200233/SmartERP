@@ -106,6 +106,69 @@ async getOverview(req, res, next) {
     }
 }
 
+    async getTodaySales(req, res, next) {
+    try {
+        const { companyId } = req.query;
+
+        if (!companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID is required'
+            });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Get today's sales
+        const { data: salesData, error: salesError } = await supabase
+            .from('vouchers')
+            .select('amount, payment_type')
+            .eq('voucher_type', 'SALES')
+            .eq('company_id', companyId)
+            .gte('created_at', today.toISOString())
+            .lt('created_at', tomorrow.toISOString())
+            .is('deleted_at', null);
+
+        if (salesError) throw salesError;
+
+        const totalSales = salesData?.reduce((sum, v) => sum + (v.amount || 0), 0) || 0;
+        const orderCount = salesData?.length || 0;
+
+        // Breakdown by payment type
+        const paymentBreakdown = {
+            cash: 0,
+            card: 0,
+            upi: 0
+        };
+
+        salesData?.forEach(sale => {
+            const paymentType = sale.payment_type?.toLowerCase() || 'cash';
+            if (paymentBreakdown[paymentType] !== undefined) {
+                paymentBreakdown[paymentType] += sale.amount || 0;
+            }
+        });
+
+        res.json({
+            success: true,
+            data: {
+                total: totalSales,
+                orders: orderCount,
+                payment_breakdown: paymentBreakdown,
+                average: orderCount > 0 ? totalSales / orderCount : 0
+            }
+        });
+    } catch (error) {
+        logger.error('Get today sales error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch today sales'
+        });
+    }
+}
+
     async getMonthlySales(companyId) {
         try {
             const months = [];

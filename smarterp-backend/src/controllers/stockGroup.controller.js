@@ -46,32 +46,35 @@ class StockGroupController {
         }
     }
 
-    async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
+async getAll(req, res, next) {
+    try {
+        const { companyId } = req.query;
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const groups = await StockGroupModel.findAll(companyId);
-
-            res.json({
-                success: true,
-                data: groups,
-                count: groups.length
-            });
-        } catch (error) {
-            logger.error('Get stock groups error:', error);
-            res.status(500).json({
+        if (!companyId) {
+            return res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to fetch stock groups'
+                message: 'Company ID is required'
             });
         }
+
+        console.log('Fetching stock groups for company:', companyId);
+        const groups = await StockGroupModel.findAll(companyId);
+        console.log('Found stock groups:', groups);
+
+        res.json({
+            success: true,
+            data: groups || [],
+            count: groups?.length || 0
+        });
+    } catch (error) {
+        console.error('Get stock groups error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch stock groups',
+            data: []
+        });
     }
+}
 
     async getById(req, res, next) {
         try {

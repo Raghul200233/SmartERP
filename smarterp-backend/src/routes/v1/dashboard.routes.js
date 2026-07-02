@@ -14,4 +14,7 @@ router.get('/sales',
     DashboardController.getMonthlySales
 );
 
+router.get('/today-sales', 
+    DashboardController.getTodaySales);
+
 module.exports = router;

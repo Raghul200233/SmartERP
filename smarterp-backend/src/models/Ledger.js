@@ -174,38 +174,66 @@ class LedgerModel {
         }
     }
 
-    async softDelete(id, companyId) {
-        try {
-            // Check if ledger has transactions
-            const { count, error: countError } = await supabase
-                .from('voucher_entries')
-                .select('*', { count: 'exact' })
-                .eq('ledger_id', id);
+async softDelete(id, companyId) {
+    try {
+        // ✅ Check if ledger has transactions (vouchers)
+        const { count: voucherCount, error: voucherError } = await supabase
+            .from('vouchers')
+            .select('*', { count: 'exact' })
+            .eq('ledger_id', id)
+            .eq('company_id', companyId)
+            .is('deleted_at', null);
 
-            if (countError) throw countError;
+        if (voucherError) throw voucherError;
 
-            if (count > 0) {
-                throw new Error('Cannot delete ledger with transactions');
-            }
+        // ✅ Check if ledger has voucher entries
+        const { count: entryCount, error: entryError } = await supabase
+            .from('voucher_entries')
+            .select('*', { count: 'exact' })
+            .eq('ledger_id', id)
+            .is('deleted_at', null);
 
+        if (entryError) throw entryError;
+
+        // If ledger has transactions, just deactivate it instead of deleting
+        if (voucherCount > 0 || entryCount > 0) {
             const { error } = await supabase
                 .from('ledgers')
                 .update({ 
-                    deleted_at: new Date().toISOString(),
-                    status: 'INACTIVE'
+                    status: 'INACTIVE',
+                    deleted_at: new Date().toISOString()
                 })
                 .eq('id', id)
                 .eq('company_id', companyId);
 
             if (error) throw error;
-
-            logger.info(`Ledger soft deleted: ${id}`);
-            return { success: true };
-        } catch (error) {
-            logger.error('Error deleting ledger:', error);
-            throw error;
+            
+            return { 
+                success: true, 
+                message: 'Ledger has transactions. Status changed to INACTIVE.',
+                deactivated: true 
+            };
         }
+
+        // If no transactions, soft delete
+        const { error } = await supabase
+            .from('ledgers')
+            .update({ 
+                deleted_at: new Date().toISOString(),
+                status: 'INACTIVE'
+            })
+            .eq('id', id)
+            .eq('company_id', companyId);
+
+        if (error) throw error;
+
+        logger.info(`Ledger soft deleted: ${id}`);
+        return { success: true, deactivated: false };
+    } catch (error) {
+        logger.error('Error deleting ledger:', error);
+        throw error;
     }
+}
 
     async getStatement(ledgerId, companyId, startDate, endDate) {
         try {

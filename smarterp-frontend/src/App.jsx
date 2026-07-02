@@ -1,33 +1,25 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { AppRoutes } from './AppRoutes';
-import { useCompanyStore } from './store/companyStore';
-import { useDashboardStore } from './store/dashboardStore';
-import { dashboardService } from './services/dashboard.service';
+import { useUIStore } from './store/uiStore';
+import { KeyboardShortcutsHelp } from './components/shared/KeyboardShortcutsHelp';
 
 function App() {
-  const { currentCompany } = useCompanyStore();
-  const { setDashboardData, setLoading } = useDashboardStore();
+  const { isDarkMode } = useUIStore();
 
-  // Only fetch dashboard data when company changes
-  useEffect(() => {
-    if (currentCompany) {
-      fetchDashboardData();
+  React.useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
     }
-  }, [currentCompany]);
+  }, [isDarkMode]);
 
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const data = await dashboardService.getOverview(currentCompany.id);
-      setDashboardData(data);
-    } catch (error) {
-      console.error('Error fetching dashboard:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return <AppRoutes />;
+  return (
+    <>
+      <AppRoutes />
+      <KeyboardShortcutsHelp />
+    </>
+  );
 }
 
 export default App;

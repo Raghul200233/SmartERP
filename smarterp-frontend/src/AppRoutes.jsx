@@ -13,6 +13,14 @@ import CustomerPage from './pages/CustomerPage';
 import SupplierPage from './pages/SupplierPage';
 import ReportsPage from './pages/ReportsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
+import SettingsPage from './pages/SettingsPage';
+
+// ✅ Inner component to use hooks inside Router
+const KeyboardShortcutsInitializer = () => {
+  useKeyboardShortcuts();
+  return null;
+};
 
 export const AppRoutes = () => {
   return (
@@ -27,6 +35,8 @@ export const AppRoutes = () => {
           },
         }}
       />
+      {/* ✅ Keyboard shortcuts initialized inside Router */}
+      <KeyboardShortcutsInitializer />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
@@ -42,6 +52,7 @@ export const AppRoutes = () => {
             <Route path="/customers" element={<CustomerPage />} />
             <Route path="/suppliers" element={<SupplierPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Route>
         </Route>
       </Routes>

@@ -95,21 +95,33 @@ export const LedgerList = ({ onEdit, onView, onDelete, onAdd }) => {
     fetchLedgers();
   };
 
-  const handleDelete = async (ledger) => {
+const handleDelete = async (ledger) => {
     if (!window.confirm(`Are you sure you want to delete "${ledger.name}"?`)) {
-      return;
+        return;
     }
 
     try {
-      await ledgerService.delete(currentCompany.id, ledger.id);
-      toast.success('Ledger deleted successfully');
-      fetchLedgers();
-      if (onDelete) onDelete(ledger);
+        const response = await ledgerService.delete(currentCompany.id, ledger.id);
+        
+        if (response.deactivated) {
+            toast.warning(response.message || 'Ledger has transactions and has been deactivated');
+        } else {
+            toast.success('Ledger deleted successfully');
+        }
+        
+        fetchLedgers();
+        if (onDelete) onDelete(ledger);
     } catch (error) {
-      console.error('Error deleting ledger:', error);
-      toast.error(error.response?.data?.message || 'Failed to delete ledger');
+        console.error('Error deleting ledger:', error);
+        const message = error.response?.data?.message || error.message || 'Failed to delete ledger';
+        
+        if (error.response?.status === 409) {
+            toast.warning('Ledger has transactions. It has been deactivated instead of deleted.');
+        } else {
+            toast.error(message);
+        }
     }
-  };
+};
 
   const handleRefresh = () => {
     fetchLedgers();

@@ -4,17 +4,10 @@ import { useCompanyStore } from '../../store/companyStore';
 import { voucherService } from '../../services/voucher.service';
 import { customerService } from '../../services/customer.service';
 import { stockItemService } from '../../services/stock.service';
-import { useVoucherStore } from '../../store/voucherStore';
-import { useStockStore } from '../../store/stockStore';
-import { useDashboardStore } from '../../store/dashboardStore';
-import { eventBus } from '../../utils/eventBus';
 import toast from 'react-hot-toast';
 
 export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
   const { currentCompany } = useCompanyStore();
-  const { addVoucher, updateStats } = useVoucherStore();
-  const { updateStockItem } = useStockStore();
-  const { updateDashboardData } = useDashboardStore();
   const [formData, setFormData] = useState({
     customer_id: '',
     customer_name: 'Walk-in Customer',
@@ -28,7 +21,6 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
   const [stockItems, setStockItems] = useState([]);
   const [errors, setErrors] = useState({});
   const [loading, setLocalLoading] = useState(false);
-  const [selectedItems, setSelectedItems] = useState({});
 
   const isEdit = !!voucher;
   const [calculatedTotals, setCalculatedTotals] = useState({
@@ -55,13 +47,6 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
     try {
       const response = await stockItemService.getAll(currentCompany.id);
       setStockItems(Array.isArray(response.data) ? response.data : []);
-      
-      // Store selling prices for quick lookup
-      const prices = {};
-      response.data.forEach(item => {
-        prices[item.id] = item.selling_price || 0;
-      });
-      setSelectedItems(prices);
     } catch (error) {
       console.error('Error fetching stock items:', error);
       setStockItems([]);
@@ -84,18 +69,29 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
     calculateTotals();
   };
 
+  // ✅ FIX: Auto-populate rate when item is selected
   const updateItem = (index, field, value) => {
     const newItems = [...formData.items];
     
     if (field === 'stock_item_id') {
-      // Auto-fill rate from selling price
-      const rate = selectedItems[value] || 0;
-      newItems[index].stock_item_id = value;
-      newItems[index].rate = rate;
-      newItems[index].amount = (newItems[index].quantity || 1) * rate;
+      // Find the selected stock item and auto-populate rate
+      const selectedItem = stockItems.find(item => item.id === value);
+      if (selectedItem) {
+        const rate = selectedItem.selling_price || 0;
+        const quantity = newItems[index].quantity || 1;
+        newItems[index].stock_item_id = value;
+        newItems[index].rate = rate;
+        newItems[index].amount = quantity * rate;
+      } else {
+        newItems[index].stock_item_id = value;
+        newItems[index].rate = 0;
+        newItems[index].amount = 0;
+      }
     } else if (field === 'quantity') {
-      newItems[index].quantity = parseFloat(value) || 0;
-      newItems[index].amount = newItems[index].quantity * newItems[index].rate;
+      const quantity = parseFloat(value) || 0;
+      const rate = newItems[index].rate || 0;
+      newItems[index].quantity = quantity;
+      newItems[index].amount = quantity * rate;
     } else {
       newItems[index][field] = value;
     }
@@ -158,40 +154,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
         }))
       };
 
-    const response = await voucherService.create(currentCompany.id, voucherData);
-
-       // ✅ Emit events for real-time updates
-    eventBus.emitVoucherCreated({
-      ...response,
-      voucher_type: 'SALES',
-      amount: calculatedTotals.grandTotal,
-      payment_type: formData.payment_type,
-      items: formData.items
-    });
-
-    // Emit stock updates for each item (decrease stock)
-    formData.items.forEach(item => {
-      eventBus.emitStockUpdated({
-        id: item.stock_item_id,
-        current_quantity: (item.current_quantity || 0) - parseFloat(item.quantity)
-      });
-    });
-    
-    // ✅ Update store immediately
-    addVoucher(response);
-    
-    // ✅ Update stock items in store (decrease quantity)
-    formData.items.forEach(item => {
-      updateStockItem(item.stock_item_id, {
-        current_quantity: (item.current_quantity || 0) - parseFloat(item.quantity)
-      });
-    });
-
-    // ✅ Update dashboard stats
-    updateDashboardData({
-      todaySales: (dashboardData?.todaySales || 0) + calculatedTotals.grandTotal,
-      stockValue: (dashboardData?.stockValue || 0) - calculatedTotals.grandTotal
-    });
+      await voucherService.create(currentCompany.id, voucherData);
       
       const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
       toast.success(`Sales voucher created! Invoice #${invoiceNumber}`);
@@ -319,7 +282,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
                         const stock = si.current_quantity || 0;
                         return (
                           <option key={si.id} value={si.id} disabled={stock <= 0}>
-                            {si.name} (Stock: {stock})
+                            {si.name} 
                           </option>
                         );
                       })}
@@ -339,7 +302,7 @@ export const SalesVoucher = ({ voucher, onClose, onSuccess }) => {
                   </div>
 
                   <div className="col-span-2">
-                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Rate</label>
+                    <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Rate (Auto)</label>
                     <input
                       type="text"
                       value={formatCurrency(item.rate)}

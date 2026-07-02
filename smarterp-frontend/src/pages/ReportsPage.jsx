@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/Tabs';
-import { BalanceSheet } from '../components/reports/BalanceSheet';
 import { ProfitLoss } from '../components/reports/ProfitLoss';
-import { TrialBalance } from '../components/reports/TrialBalance';
 import { StockSummary } from '../components/reports/StockSummary';
 import { GSTReport } from '../components/reports/GSTReport';
 import { SalesReport } from '../components/reports/SalesReport';
@@ -25,25 +23,15 @@ const ReportsPage = () => {
 
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="mb-6 flex flex-wrap">
-                        <TabsTrigger value="balance-sheet">Balance Sheet</TabsTrigger>
                         <TabsTrigger value="profit-loss">Profit & Loss</TabsTrigger>
-                        <TabsTrigger value="trial-balance">Trial Balance</TabsTrigger>
                         <TabsTrigger value="stock-summary">Stock Summary</TabsTrigger>
                         <TabsTrigger value="gst">GST Report</TabsTrigger>
                         <TabsTrigger value="sales">Sales Report</TabsTrigger>
                         <TabsTrigger value="purchases">Purchase Report</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="balance-sheet">
-                        <BalanceSheet />
-                    </TabsContent>
-
                     <TabsContent value="profit-loss">
                         <ProfitLoss />
-                    </TabsContent>
-
-                    <TabsContent value="trial-balance">
-                        <TrialBalance />
                     </TabsContent>
 
                     <TabsContent value="stock-summary">

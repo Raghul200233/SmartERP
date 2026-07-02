@@ -39,32 +39,35 @@ class UnitController {
         }
     }
 
-    async getAll(req, res, next) {
-        try {
-            const { companyId } = req.query;
+async getAll(req, res, next) {
+    try {
+        const { companyId } = req.query;
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            const units = await UnitModel.findAll(companyId);
-
-            res.json({
-                success: true,
-                data: units,
-                count: units.length
-            });
-        } catch (error) {
-            logger.error('Get units error:', error);
-            res.status(500).json({
+        if (!companyId) {
+            return res.status(400).json({
                 success: false,
-                message: error.message || 'Failed to fetch units'
+                message: 'Company ID is required'
             });
         }
+
+        console.log('Fetching units for company:', companyId);
+        const units = await UnitModel.findAll(companyId);
+        console.log('Found units:', units);
+
+        res.json({
+            success: true,
+            data: units || [],
+            count: units?.length || 0
+        });
+    } catch (error) {
+        console.error('Get units error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch units',
+            data: []
+        });
     }
+}
 
     async getById(req, res, next) {
         try {

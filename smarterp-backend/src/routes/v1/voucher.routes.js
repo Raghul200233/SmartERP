@@ -5,10 +5,16 @@ const { authenticate } = require('../../middleware/auth');
 
 router.use(authenticate);
 
-router.get('/', VoucherController.getAll);
+
+// GET routes - specific first
+router.get('/payment-stats', VoucherController.getPaymentStats);
+router.patch('/:id/pay', VoucherController.markAsPaid);
+router.get('/:id/statement', VoucherController.getLedgerStatement);
 router.get('/types', VoucherController.getTypes);
 router.get('/stats', VoucherController.getStats);
+router.get('/', VoucherController.getAll);
 router.post('/', VoucherController.create);
 router.get('/:id', VoucherController.getById);
+router.get('/:id/pdf', VoucherController.generatePDF);
 
 module.exports = router;

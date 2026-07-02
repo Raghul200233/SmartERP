@@ -127,37 +127,41 @@ class LedgerController {
         }
     }
 
-    async delete(req, res, next) {
-        try {
-            const { id } = req.params;
-            const { companyId } = req.query;
+async delete(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { companyId } = req.query;
 
-            if (!companyId) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Company ID is required'
-                });
-            }
-
-            await LedgerModel.softDelete(id, companyId);
-
-            await AuditLog.create({
-                user_id: req.user.id,
-                company_id: companyId,
-                action: 'LEDGER_DELETED',
-                resource_type: 'ledgers',
-                resource_id: id
+        if (!companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID is required'
             });
-
-            res.json({
-                success: true,
-                message: 'Ledger deleted successfully'
-            });
-        } catch (error) {
-            logger.error('Delete ledger error:', error);
-            next(error);
         }
+
+        const result = await LedgerModel.softDelete(id, companyId);
+
+        await AuditLog.create({
+            user_id: req.user.id,
+            company_id: companyId,
+            action: result.deactivated ? 'LEDGER_DEACTIVATED' : 'LEDGER_DELETED',
+            resource_type: 'ledgers',
+            resource_id: id
+        });
+
+        res.json({
+            success: true,
+            message: result.message || 'Ledger deleted successfully',
+            deactivated: result.deactivated
+        });
+    } catch (error) {
+        logger.error('Delete ledger error:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Failed to delete ledger'
+        });
     }
+}
 
     async getStatement(req, res, next) {
         try {

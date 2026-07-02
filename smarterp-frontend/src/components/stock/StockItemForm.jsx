@@ -18,6 +18,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
     purchase_price: 0,
     selling_price: 0,
     gst_percentage: 0
+    // ❌ Remove opening_quantity
   });
   const [stockGroups, setStockGroups] = useState([]);
   const [units, setUnits] = useState([]);
@@ -45,19 +46,33 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
 
   const fetchStockGroups = async () => {
     try {
-      const data = await stockGroupService.getAll(currentCompany.id);
-      setStockGroups(data);
+      console.log('Fetching stock groups...');
+      const response = await stockGroupService.getAll(currentCompany.id);
+      console.log('Stock groups response:', response);
+      
+      // Handle different response formats
+      const groups = Array.isArray(response) ? response : 
+                    Array.isArray(response?.data) ? response.data : [];
+      setStockGroups(groups);
     } catch (error) {
       console.error('Error fetching stock groups:', error);
+      setStockGroups([]);
     }
   };
 
   const fetchUnits = async () => {
     try {
-      const data = await unitService.getAll(currentCompany.id);
-      setUnits(data);
+      console.log('Fetching units...');
+      const response = await unitService.getAll(currentCompany.id);
+      console.log('Units response:', response);
+      
+      // Handle different response formats
+      const unitsList = Array.isArray(response) ? response : 
+                       Array.isArray(response?.data) ? response.data : [];
+      setUnits(unitsList);
     } catch (error) {
       console.error('Error fetching units:', error);
+      setUnits([]);
     }
   };
 
@@ -78,9 +93,10 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
     if (formData.gst_percentage < 0 || formData.gst_percentage > 100) {
       newErrors.gst_percentage = 'GST must be between 0 and 100';
     }
-    if (formData.opening_quantity < 0) {
-      newErrors.opening_quantity = 'Opening quantity cannot be negative';
-    }
+    // ❌ Remove opening_quantity validation
+    // if (formData.opening_quantity < 0) {
+    //   newErrors.opening_quantity = 'Opening quantity cannot be negative';
+    // }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -94,21 +110,25 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
       setLoading(true);
 
       const data = {
-        ...formData,
+        name: formData.name.trim(),
+        sku: formData.sku || null,
+        barcode: formData.barcode || null,
+        stock_group_id: formData.stock_group_id || null,
+        unit_id: formData.unit_id || null,
         purchase_price: parseFloat(formData.purchase_price) || 0,
         selling_price: parseFloat(formData.selling_price) || 0,
-        gst_percentage: parseFloat(formData.gst_percentage) || 0,
-        opening_quantity: parseFloat(formData.opening_quantity) || 0
+        gst_percentage: parseFloat(formData.gst_percentage) || 0
+        // ❌ Remove opening_quantity
       };
 
       if (isEdit) {
         await stockItemService.update(currentCompany.id, item.id, data);
         toast.success('Stock item updated successfully');
       } else {
-          const response = await stockItemService.create(currentCompany.id, data);
-          eventBus.emitStockUpdated({
+        const response = await stockItemService.create(currentCompany.id, data);
+        eventBus.emitStockUpdated({
           ...response,
-          current_quantity: data.opening_quantity || 0
+          current_quantity: 0 // Start with 0
         });
         toast.success('Stock item created successfully');
       }
@@ -194,18 +214,22 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Stock Group
               </label>
-<select
-    value={formData.stock_group_id}
-    onChange={(e) => setFormData({ ...formData, stock_group_id: e.target.value })}
-    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
->
-    <option value="">Select Group</option>
-    {Array.isArray(stockGroups) && stockGroups.map((group) => (
-        <option key={group.id} value={group.id}>
-            {group.name}
-        </option>
-    ))}
-</select>
+              <select
+                value={formData.stock_group_id}
+                onChange={(e) => setFormData({ ...formData, stock_group_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Select Group</option>
+                {Array.isArray(stockGroups) && stockGroups.length > 0 ? (
+                  stockGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name}
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No groups available</option>
+                )}
+              </select>
             </div>
 
             {/* Unit */}
@@ -213,18 +237,22 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Unit
               </label>
-<select
-    value={formData.unit_id}
-    onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
-    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
->
-    <option value="">Select Unit</option>
-    {Array.isArray(units) && units.map((unit) => (
-        <option key={unit.id} value={unit.id}>
-            {unit.name} ({unit.symbol})
-        </option>
-    ))}
-</select>
+              <select
+                value={formData.unit_id}
+                onChange={(e) => setFormData({ ...formData, unit_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              >
+                <option value="">Select Unit</option>
+                {Array.isArray(units) && units.length > 0 ? (
+                  units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>
+                      {unit.name} ({unit.symbol})
+                    </option>
+                  ))
+                ) : (
+                  <option value="" disabled>No units available</option>
+                )}
+              </select>
             </div>
 
             {/* Purchase Price */}
@@ -235,7 +263,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <input
                 type="number"
                 value={formData.purchase_price}
-                onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, purchase_price: parseFloat(e.target.value) || 0 })}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                   errors.purchase_price ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
@@ -254,7 +282,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <input
                 type="number"
                 value={formData.selling_price}
-                onChange={(e) => setFormData({ ...formData, selling_price: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, selling_price: parseFloat(e.target.value) || 0 })}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                   errors.selling_price ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
@@ -273,7 +301,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               <input
                 type="number"
                 value={formData.gst_percentage}
-                onChange={(e) => setFormData({ ...formData, gst_percentage: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, gst_percentage: parseFloat(e.target.value) || 0 })}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
                   errors.gst_percentage ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                 }`}
@@ -285,24 +313,7 @@ export const StockItemForm = ({ item, onClose, onSuccess }) => {
               {errors.gst_percentage && <p className="mt-1 text-sm text-red-500">{errors.gst_percentage}</p>}
             </div>
 
-            {/* Opening Quantity */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Opening Quantity
-              </label>
-              <input
-                type="number"
-                value={formData.opening_quantity}
-                onChange={(e) => setFormData({ ...formData, opening_quantity: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                  errors.opening_quantity ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="0"
-                step="1"
-                min="0"
-              />
-              {errors.opening_quantity && <p className="mt-1 text-sm text-red-500">{errors.opening_quantity}</p>}
-            </div>
+            {/* ❌ Remove Opening Quantity field completely */}
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">

@@ -26,10 +26,17 @@ export const ledgerService = {
     return response.data.data;
   },
 
-  async delete(companyId, id) {
-    const response = await api.delete(`/ledgers/${id}?companyId=${companyId}`);
-    return response.data;
-  },
+async delete(companyId, id) {
+    try {
+        const response = await api.delete(`/ledgers/${id}?companyId=${companyId}`);
+        return response.data;
+    } catch (error) {
+        if (error.response?.status === 409) {
+            throw new Error('Cannot delete ledger with transactions. It has been deactivated instead.');
+        }
+        throw error;
+    }
+},
 
   async getStatement(companyId, id, startDate, endDate) {
     const params = new URLSearchParams({

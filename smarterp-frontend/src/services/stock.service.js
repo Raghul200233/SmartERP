@@ -3,16 +3,13 @@ import api from './api';
 export const stockGroupService = {
   async getAll(companyId) {
     try {
+      console.log('Calling stock groups API...');
       const response = await api.get(`/stock-groups?companyId=${companyId}`);
+      console.log('Stock groups API response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching stock groups:', error);
-      return {
-        success: false,
-        data: [],
-        count: 0,
-        message: error.message || 'Failed to fetch stock groups'
-      };
+      return { data: [], count: 0 };
     }
   },
 
@@ -48,16 +45,13 @@ export const stockGroupService = {
 export const unitService = {
   async getAll(companyId) {
     try {
+      console.log('Calling units API...');
       const response = await api.get(`/units?companyId=${companyId}`);
+      console.log('Units API response:', response.data);
       return response.data;
     } catch (error) {
       console.error('Error fetching units:', error);
-      return {
-        success: false,
-        data: [],
-        count: 0,
-        message: error.message || 'Failed to fetch units'
-      };
+      return { data: [], count: 0 };
     }
   },
 

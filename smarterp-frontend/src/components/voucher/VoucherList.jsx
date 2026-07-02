@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, Plus, Eye, Edit, Trash2, Filter, ChevronDown,
   RefreshCw, FileText, TrendingUp, TrendingDown, 
-  ArrowUpRight, ArrowDownLeft, Building2, Wallet
+  ArrowUpRight, ArrowDownLeft, Building2, Download, Wallet
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCompanyStore } from '../../store/companyStore';
@@ -38,6 +38,7 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterPayment, setFilterPayment] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -47,7 +48,6 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
   // Use prop vouchers if provided, otherwise use store
   const vouchers = propVouchers || storeVouchers || [];
   const isLoading = propLoading !== undefined ? propLoading : storeLoading;
-
 
   useEffect(() => {
     if (currentCompany) {
@@ -63,11 +63,12 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
       if (searchTerm) filters.search = searchTerm;
       if (filterType) filters.type = filterType;
       if (filterStatus) filters.status = filterStatus;
+      if (filterPayment) filters.payment_type = filterPayment;
       if (startDate) filters.startDate = startDate;
       if (endDate) filters.endDate = endDate;
 
-      const data = await voucherService.getAll(currentCompany.id, filters);
-      setVouchers(data);
+      const response = await voucherService.getAll(currentCompany.id, filters);
+      setVouchers(Array.isArray(response?.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching vouchers:', error);
       toast.error('Failed to load vouchers');
@@ -100,6 +101,39 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
     }
   };
 
+  const handleDownloadPDF = async (voucher) => {
+    try {
+      console.log('Downloading PDF for voucher:', voucher.id);
+      console.log('Company ID:', currentCompany.id);
+      console.log('Voucher data:', voucher);
+      console.log('Voucher inventory:', voucher.inventory_transactions);
+      
+      toast.loading('Generating PDF...');
+      
+      const pdfBlob = await voucherService.downloadPDF(currentCompany.id, voucher.id);
+
+      console.log('PDF Blob received:', pdfBlob);
+      console.log('PDF Blob size:', pdfBlob.size);
+      
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoice-${voucher.voucher_number}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.dismiss();
+      toast.success('PDF downloaded successfully!');
+    } catch (error) {
+      console.error('Full error:', error);
+      console.error('Error response:', error.response);
+      toast.dismiss();
+      toast.error(error.response?.data?.message || 'Failed to download PDF');
+    }
+  };
+
   const handleRefresh = () => {
     fetchVouchers();
     toast.success('Refreshed');
@@ -114,6 +148,15 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
     return colors[status] || colors.DRAFT;
   };
 
+  const getPaymentColor = (paymentType) => {
+    const colors = {
+      CASH: 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400',
+      CARD: 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400',
+      UPI: 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
+    };
+    return colors[paymentType] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400';
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
@@ -123,7 +166,7 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
     }).format(amount);
   };
 
-   const filteredVouchers = Array.isArray(vouchers) ? vouchers : [];
+  const filteredVouchers = Array.isArray(vouchers) ? vouchers : [];
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -139,27 +182,27 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
             </p>
           </div>
           <button
-            onClick={onAdd}
+            onClick={() => onAdd('PURCHASE')}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
           >
             <Plus className="w-4 h-4" />
             New Voucher
           </button>
         </div>
-<div className="flex flex-wrap items-center gap-2">
-  <button
-    onClick={() => onAdd('PURCHASE')}
-    className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-  >
-    Purchase
-  </button>
-  <button
-    onClick={() => onAdd('SALES')}
-    className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-  >
-    Sales
-  </button>
-</div>
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <button
+            onClick={() => onAdd('PURCHASE')}
+            className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          >
+            Purchase
+          </button>
+          <button
+            onClick={() => onAdd('SALES')}
+            className="px-3 py-1.5 text-sm bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
+          >
+            Sales
+          </button>
+        </div>
       </div>
 
       {/* Search and Filters */}
@@ -232,14 +275,18 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                From Date
+                Payment Type
               </label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+              <select
+                value={filterPayment}
+                onChange={(e) => setFilterPayment(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-              />
+              >
+                <option value="">All Payments</option>
+                <option value="CASH">Cash</option>
+                <option value="CARD">Card</option>
+                <option value="UPI">UPI</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -257,6 +304,7 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
                 onClick={() => {
                   setFilterType('');
                   setFilterStatus('');
+                  setFilterPayment('');
                   setStartDate('');
                   setEndDate('');
                   setSearchTerm('');
@@ -292,13 +340,13 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
             No vouchers found
           </h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">
-            {searchTerm || filterType || filterStatus || startDate || endDate
+            {searchTerm || filterType || filterStatus || filterPayment || startDate || endDate
               ? 'Try adjusting your search or filters'
               : 'Create your first voucher to get started'}
           </p>
-          {!searchTerm && !filterType && !filterStatus && !startDate && !endDate && (
+          {!searchTerm && !filterType && !filterStatus && !filterPayment && !startDate && !endDate && (
             <button
-              onClick={onAdd}
+              onClick={() => onAdd('PURCHASE')}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -323,6 +371,10 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Ledger
                 </th>
+                {/* ✅ Payment Type Column */}
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Payment
+                </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Amount
                 </th>
@@ -335,10 +387,11 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {Array.isArray(filteredVouchers) && filteredVouchers.map((voucher) => {
+              {Array.isArray(filteredVouchers) && filteredVouchers.map((voucher) => {
                 const Icon = VOUCHER_TYPE_ICONS[voucher.voucher_type] || FileText;
                 const colorClass = VOUCHER_TYPE_COLORS[voucher.voucher_type] || 'bg-gray-100 text-gray-600';
                 const statusColor = getStatusColor(voucher.status);
+                const paymentColor = getPaymentColor(voucher.payment_type);
 
                 return (
                   <tr key={voucher.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
@@ -359,6 +412,16 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
                     <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                       {voucher.ledgers?.name || '-'}
                     </td>
+                    {/* ✅ Payment Type Column Data */}
+                    <td className="px-4 py-3">
+                      {voucher.voucher_type === 'SALES' ? (
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${paymentColor}`}>
+                          {voucher.payment_type || 'CASH'}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-medium text-gray-900 dark:text-white">
                       {formatCurrency(voucher.amount)}
                     </td>
@@ -368,7 +431,7 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => onView(voucher)}
                           className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
@@ -382,6 +445,13 @@ export const VoucherList = ({ vouchers: propVouchers, isLoading: propLoading, on
                           title="Edit"
                         >
                           <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadPDF(voucher)}
+                          className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
+                          title="Download PDF"
+                        >
+                          <Download className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(voucher)}

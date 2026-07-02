@@ -1,6 +1,8 @@
+const supabase = require('../config/database');
 const VoucherModel = require('../models/Voucher');
 const AuditLog = require('../models/AuditLog');
 const logger = require('../utils/logger');
+const PDFGenerator = require('../utils/pdfGenerator');
 
 class VoucherController {
     // ✅ Create voucher
@@ -67,6 +69,32 @@ class VoucherController {
             });
         }
     }
+
+    async getPaymentStats(req, res, next) {
+    try {
+        const { companyId, startDate, endDate } = req.query;
+
+        if (!companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID is required'
+            });
+        }
+
+        const stats = await VoucherModel.getPaymentStats(companyId, startDate, endDate);
+
+        res.json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        logger.error('Get payment stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch payment stats'
+        });
+    }
+}
 
     // ✅ Get all vouchers
 async getAll(req, res, next) {
@@ -184,6 +212,118 @@ async getAll(req, res, next) {
             });
         }
     }
+
+async generatePDF(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { companyId } = req.query;
+
+        if (!companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID is required'
+            });
+        }
+
+        // Get voucher with details
+        const voucher = await VoucherModel.findById(id, companyId);
+        
+        if (!voucher) {
+            return res.status(404).json({
+                success: false,
+                message: 'Voucher not found'
+            });
+        }
+
+        // Get company details
+        const { data: company, error: companyError } = await supabase
+            .from('companies')
+            .select('*')
+            .eq('id', companyId)
+            .single();
+
+        if (companyError) throw companyError;
+
+        // Generate PDF
+        const pdfBuffer = await PDFGenerator.generateInvoice(voucher, company);
+
+        const fileName = `Invoice-${voucher.voucher_number}.pdf`;
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+        res.send(pdfBuffer);
+    } catch (error) {
+        logger.error('Generate PDF error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to generate PDF'
+        });
+    }
+}
+
+async markAsPaid(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { companyId } = req.query;
+        const { paymentMethod, amount } = req.body;
+
+        if (!companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID is required'
+            });
+        }
+
+        const voucher = await VoucherModel.markAsPaid(id, companyId, paymentMethod, amount);
+
+        await AuditLog.create({
+            user_id: req.user.id,
+            company_id: companyId,
+            action: 'VOUCHER_PAID',
+            resource_type: 'vouchers',
+            resource_id: voucher.id
+        });
+
+        res.json({
+            success: true,
+            message: 'Payment marked successfully',
+            data: voucher
+        });
+    } catch (error) {
+        logger.error('Mark as paid error:', error);
+        res.status(400).json({
+            success: false,
+            message: error.message || 'Failed to mark as paid'
+        });
+    }
+}
+
+async getLedgerStatement(req, res, next) {
+    try {
+        const { id } = req.params;
+        const { companyId } = req.query;
+
+        if (!companyId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Company ID is required'
+            });
+        }
+
+        const statement = await VoucherModel.getLedgerStatementWithPayments(id, companyId);
+
+        res.json({
+            success: true,
+            data: statement
+        });
+    } catch (error) {
+        logger.error('Get ledger statement error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to fetch ledger statement'
+        });
+    }
+}
 }
 
 module.exports = new VoucherController();
